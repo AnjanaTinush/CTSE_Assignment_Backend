@@ -13,6 +13,7 @@ services:
       - PRODUCT_SERVICE_URL=http://product-service:3002
       - ORDER_SERVICE_URL=http://order-service:3003
       - DELIVERY_SERVICE_URL=http://delivery-service:3004
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
     networks:
       - ctse-network
     depends_on:
@@ -29,8 +30,8 @@ services:
       - "3001:3001"
     environment:
       - PORT=3001
-      - MONGO_URI=mongodb+srv://anjana2:anjana@cluster0.rg6ebmf.mongodb.net/auth_db
-      - JWT_SECRET=supersecretjwtkey_ctse
+      - MONGO_URI=${AUTH_MONGO_URI}
+      - JWT_SECRET=${JWT_SECRET}
       - ORDER_SERVICE_URL=http://order-service:3003
     networks:
       - ctse-network
@@ -43,8 +44,8 @@ services:
       - "3002:3002"
     environment:
       - PORT=3002
-      - MONGO_URI=mongodb+srv://anjana2:anjana@cluster0.rg6ebmf.mongodb.net/product_db
-      - JWT_SECRET=supersecretjwtkey_ctse
+      - MONGO_URI=${PRODUCT_MONGO_URI}
+      - JWT_SECRET=${JWT_SECRET}
       - AUTH_SERVICE_URL=http://auth-service:3001
     networks:
       - ctse-network
@@ -57,8 +58,8 @@ services:
       - "3003:3003"
     environment:
       - PORT=3003
-      - MONGO_URI=mongodb+srv://anjana2:anjana@cluster0.rg6ebmf.mongodb.net/order_db
-      - JWT_SECRET=supersecretjwtkey_ctse
+      - MONGO_URI=${ORDER_MONGO_URI}
+      - JWT_SECRET=${JWT_SECRET}
       - PRODUCT_SERVICE_URL=http://product-service:3002
     networks:
       - ctse-network
@@ -71,8 +72,8 @@ services:
       - "3004:3004"
     environment:
       - PORT=3004
-      - MONGO_URI=mongodb+srv://anjana2:anjana@cluster0.rg6ebmf.mongodb.net/delivery_db
-      - JWT_SECRET=supersecretjwtkey_ctse
+      - MONGO_URI=${DELIVERY_MONGO_URI}
+      - JWT_SECRET=${JWT_SECRET}
       - ORDER_SERVICE_URL=http://order-service:3003
     networks:
       - ctse-network

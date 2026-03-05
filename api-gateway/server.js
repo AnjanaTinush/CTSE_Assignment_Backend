@@ -7,8 +7,9 @@ const morgan = require('morgan');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const corsOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim()) : '*';
 
-app.use(cors());
+app.use(cors({ origin: corsOrigins }));
 app.use(helmet());
 app.use(morgan('dev'));
 
@@ -26,7 +27,7 @@ Object.entries(routes).forEach(([path, target]) => {
     app.use(path, createProxyMiddleware({
         target,
         changeOrigin: true,
-        pathRewrite: (pathStr) => pathStr, // Keeps original path
+        pathRewrite: (pathStr) => pathStr,
         onError: (err, req, res) => {
             console.error(`Proxy Error processing ${req.url}:`, err.message);
             res.status(502).json({ message: 'Bad Gateway', details: 'Service unavailable' });
@@ -39,6 +40,10 @@ app.use((err, req, res, next) => {
     res.status(500).json({ message: 'Internal Server Error' });
 });
 
-app.listen(PORT, () => {
-    console.log(`API Gateway is running on port ${PORT}`);
-});
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`API Gateway is running on port ${PORT}`);
+    });
+}
+
+module.exports = app;

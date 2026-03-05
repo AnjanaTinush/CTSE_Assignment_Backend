@@ -1,0 +1,73 @@
+openapi: 3.0.3
+info:
+  title: Order Service API
+  version: 1.0.0
+servers:
+  - url: http://localhost:3003
+paths:
+  /health:
+    get:
+      summary: Service health check
+      responses:
+        '200':
+          description: OK
+  /orders:
+    get:
+      summary: List all orders (ADMIN)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Order list
+    post:
+      summary: Create order (USER)
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Created
+  /orders/{id}:
+    get:
+      summary: Get order by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Order
+  /orders/by-user/{userId}:
+    get:
+      summary: Get orders by user (owner/admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: User orders
+  /orders/{id}/status:
+    patch:
+      summary: Update order status (ADMIN/DELIVERY)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Updated
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

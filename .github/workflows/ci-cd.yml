@@ -2,65 +2,112 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
+
+env:
+  NODE_VERSION: 20.x
 
 jobs:
-  build-and-test:
+  build-test-security:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         service: [auth-service, product-service, order-service, delivery-service, api-gateway]
-    
+
     steps:
-    - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Use Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20.x'
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ matrix.service }}/package-lock.json
 
-    - name: Install Dependencies
-      run: |
-        cd ${{ matrix.service }}
-        npm ci
+      - name: Install Dependencies
+        working-directory: ${{ matrix.service }}
+        run: npm ci
 
-    - name: Security scan (Snyk)
-      uses: snyk/actions/node@master
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      with:
-        command: monitor
-        args: --file=${{ matrix.service }}/package.json
-      # Continue on error since this is a student project without real Snyk keys by default
-      continue-on-error: true
+      - name: Run Unit Tests
+        working-directory: ${{ matrix.service }}
+        run: npm test
+
+      - name: Enforce Snyk configuration on main
+        if: ${{ github.ref == 'refs/heads/main' && secrets.SNYK_TOKEN == '' }}
+        run: |
+          echo "SNYK_TOKEN is required for main branch security scanning"
+          exit 1
+
+      - name: Security scan (Snyk)
+        if: ${{ secrets.SNYK_TOKEN != '' }}
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: test
+          args: --severity-threshold=high --file=${{ matrix.service }}/package.json
 
   docker-build-push:
-    needs: build-and-test
+    needs: build-test-security
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     strategy:
+      fail-fast: false
       matrix:
         service: [auth-service, product-service, order-service, delivery-service, api-gateway]
-    
+
     steps:
-    - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      - name: Ensure DockerHub secrets are configured
+        run: |
+          test -n "${{ secrets.DOCKERHUB_USERNAME }}"
+          test -n "${{ secrets.DOCKERHUB_TOKEN }}"
 
-    - name: Login to DockerHub
-      uses: docker/login-action@v2
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-      continue-on-error: true
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Build and push
-      uses: docker/build-push-action@v4
-      with:
-        context: ./${{ matrix.service }}
-        push: false # Setting to false for safety until user adds DockerHub secrets
-        tags: yourdockerhub/${{ matrix.service }}:latest
-      continue-on-error: true
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service }}:sha-${{ github.sha }}
+
+  deploy-ecs:
+    needs: docker-build-push
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/main' && secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' && vars.AWS_ECS_CLUSTER != '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [auth-service, product-service, order-service, delivery-service, api-gateway]
+
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Trigger rolling deployment on ECS
+        run: |
+          aws ecs update-service \
+            --cluster "${{ vars.AWS_ECS_CLUSTER }}" \
+            --service "${{ matrix.service }}" \
+            --force-new-deployment
+

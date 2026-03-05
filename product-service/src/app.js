@@ -2,14 +2,22 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const path = require('path');
+const swaggerUi = require('swagger-ui-express');
+const YAML = require('yamljs');
 const productRoutes = require('./routes/productRoutes');
 
 const app = express();
 
+const corsOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim()) : '*';
+
 app.use(express.json());
-app.use(cors());
+app.use(cors({ origin: corsOrigins }));
 app.use(helmet());
 app.use(morgan('dev'));
+
+const swaggerDocument = YAML.load(path.join(__dirname, 'openapi.yaml'));
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.use('/products', productRoutes);
 

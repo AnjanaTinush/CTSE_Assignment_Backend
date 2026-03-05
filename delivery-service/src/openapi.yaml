@@ -1,0 +1,60 @@
+openapi: 3.0.3
+info:
+  title: Delivery Service API
+  version: 1.0.0
+servers:
+  - url: http://localhost:3004
+paths:
+  /health:
+    get:
+      summary: Service health check
+      responses:
+        '200':
+          description: OK
+  /deliveries:
+    get:
+      summary: List deliveries (ADMIN)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Delivery list
+    post:
+      summary: Create delivery (ADMIN/DELIVERY)
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Created
+  /deliveries/{id}:
+    get:
+      summary: Get delivery by ID (ADMIN/DELIVERY)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Delivery
+  /deliveries/{id}/status:
+    patch:
+      summary: Update delivery status (ADMIN/DELIVERY)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Updated
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
