@@ -4,14 +4,25 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3300;
 const corsOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim()) : '*';
 
+// Global rate limit at the gateway: 300 requests / 15 min per IP
+const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: 'Too many requests, please try again later.' }
+});
+
 app.use(cors({ origin: corsOrigins }));
 app.use(helmet());
 app.use(morgan('dev'));
+app.use(globalLimiter);
 
 app.get('/health', (req, res) => res.status(200).json({ status: 'OK', service: 'api-gateway' }));
 

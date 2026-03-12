@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: ctse-app
+  labels:
+    app: order-service
+spec:
+  selector:
+    app: order-service
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 3303
+      targetPort: 3303

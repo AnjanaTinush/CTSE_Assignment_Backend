@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ctse-app
+  labels:
+    app: ctse
+    environment: production
