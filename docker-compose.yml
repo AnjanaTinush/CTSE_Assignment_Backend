@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   api-gateway:
@@ -9,10 +9,10 @@ services:
       - "3000:3000"
     environment:
       - PORT=3000
-      - AUTH_SERVICE_URL=http://auth-service:3001
-      - PRODUCT_SERVICE_URL=http://product-service:3002
-      - ORDER_SERVICE_URL=http://order-service:3003
-      - DELIVERY_SERVICE_URL=http://delivery-service:3004
+      - AUTH_SERVICE_URL=http://auth-service:3301
+      - PRODUCT_SERVICE_URL=http://product-service:3302
+      - ORDER_SERVICE_URL=http://order-service:3303
+      - DELIVERY_SERVICE_URL=http://delivery-service:3304
       - CORS_ORIGIN=${CORS_ORIGIN:-*}
     networks:
       - ctse-network
@@ -27,12 +27,12 @@ services:
       context: ./auth-service
       dockerfile: Dockerfile
     ports:
-      - "3001:3001"
+      - "3301:3301"
     environment:
-      - PORT=3001
+      - PORT=3301
       - MONGO_URI=${AUTH_MONGO_URI}
       - JWT_SECRET=${JWT_SECRET}
-      - ORDER_SERVICE_URL=http://order-service:3003
+      - ORDER_SERVICE_URL=http://order-service:3303
     networks:
       - ctse-network
 
@@ -41,12 +41,12 @@ services:
       context: ./product-service
       dockerfile: Dockerfile
     ports:
-      - "3002:3002"
+      - "3302:3302"
     environment:
-      - PORT=3002
+      - PORT=3302
       - MONGO_URI=${PRODUCT_MONGO_URI}
       - JWT_SECRET=${JWT_SECRET}
-      - AUTH_SERVICE_URL=http://auth-service:3001
+      - AUTH_SERVICE_URL=http://auth-service:3301
     networks:
       - ctse-network
 
@@ -55,12 +55,12 @@ services:
       context: ./order-service
       dockerfile: Dockerfile
     ports:
-      - "3003:3003"
+      - "3303:3303"
     environment:
-      - PORT=3003
+      - PORT=3303
       - MONGO_URI=${ORDER_MONGO_URI}
       - JWT_SECRET=${JWT_SECRET}
-      - PRODUCT_SERVICE_URL=http://product-service:3002
+      - PRODUCT_SERVICE_URL=http://product-service:3302
     networks:
       - ctse-network
 
@@ -69,12 +69,12 @@ services:
       context: ./delivery-service
       dockerfile: Dockerfile
     ports:
-      - "3004:3004"
+      - "3304:3304"
     environment:
-      - PORT=3004
+      - PORT=3304
       - MONGO_URI=${DELIVERY_MONGO_URI}
       - JWT_SECRET=${JWT_SECRET}
-      - ORDER_SERVICE_URL=http://order-service:3003
+      - ORDER_SERVICE_URL=http://order-service:3303
     networks:
       - ctse-network
 

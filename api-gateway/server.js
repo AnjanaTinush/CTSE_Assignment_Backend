@@ -16,11 +16,11 @@ app.use(morgan('dev'));
 app.get('/health', (req, res) => res.status(200).json({ status: 'OK', service: 'api-gateway' }));
 
 const routes = {
-    '/auth': process.env.AUTH_SERVICE_URL || 'http://localhost:3001',
-    '/users': process.env.AUTH_SERVICE_URL || 'http://localhost:3001',
-    '/products': process.env.PRODUCT_SERVICE_URL || 'http://localhost:3002',
-    '/orders': process.env.ORDER_SERVICE_URL || 'http://localhost:3003',
-    '/deliveries': process.env.DELIVERY_SERVICE_URL || 'http://localhost:3004'
+    '/auth': process.env.AUTH_SERVICE_URL || 'http://localhost:3301',
+    '/users': process.env.AUTH_SERVICE_URL || 'http://localhost:3301',
+    '/products': process.env.PRODUCT_SERVICE_URL || 'http://localhost:3302',
+    '/orders': process.env.ORDER_SERVICE_URL || 'http://localhost:3303',
+    '/deliveries': process.env.DELIVERY_SERVICE_URL || 'http://localhost:3304'
 };
 
 Object.entries(routes).forEach(([path, target]) => {

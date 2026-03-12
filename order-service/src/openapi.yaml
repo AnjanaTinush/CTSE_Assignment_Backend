@@ -3,13 +3,13 @@ info:
   title: Order Service API
   version: 1.0.0
 servers:
-  - url: http://localhost:3003
+  - url: http://localhost:3303
 paths:
   /health:
     get:
       summary: Service health check
       responses:
-        '200':
+        "200":
           description: OK
   /orders:
     get:
@@ -17,14 +17,14 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: Order list
     post:
       summary: Create order (USER)
       security:
         - bearerAuth: []
       responses:
-        '201':
+        "201":
           description: Created
   /orders/{id}:
     get:
@@ -37,7 +37,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Order
   /orders/by-user/{userId}:
     get:
@@ -50,7 +50,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: User orders
   /orders/{id}/status:
     patch:
@@ -63,7 +63,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Updated
 components:
   securitySchemes:

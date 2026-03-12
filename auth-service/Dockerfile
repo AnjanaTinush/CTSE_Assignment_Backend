@@ -5,5 +5,5 @@ COPY --chown=node:node package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --chown=node:node . .
 USER node
-EXPOSE 3001
+EXPOSE 3301
 CMD ["node", "server.js"]
