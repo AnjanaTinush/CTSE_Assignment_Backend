@@ -6,9 +6,9 @@ services:
       context: ./api-gateway
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "3300:3300"
     environment:
-      - PORT=3000
+      - PORT=3300
       - AUTH_SERVICE_URL=http://auth-service:3301
       - PRODUCT_SERVICE_URL=http://product-service:3302
       - ORDER_SERVICE_URL=http://order-service:3303
