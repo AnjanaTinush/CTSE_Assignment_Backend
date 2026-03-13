@@ -230,7 +230,7 @@ jobs:
       - name: Update image tags in deployment manifests
         run: |
           for svc in auth-service product-service order-service delivery-service api-gateway; do
-            sed -i "s|DOCKERHUB_USERNAME/${svc}:placeholder|${{ secrets.DOCKERHUB_USERNAME }}/${svc}:sha-${{ github.sha }}|g" \
+            sed -i -E "s|image: .*/${svc}:.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/${svc}:sha-${{ github.sha }}|g" \
               k8s/${svc}/deployment.yaml
           done
 
@@ -247,4 +247,6 @@ jobs:
 
       - name: Wait for rollouts to complete
         run: |
-          kubectl rollout status deployment --namespace=ctse-app --timeout=180s
+          for svc in auth-service product-service order-service delivery-service api-gateway; do
+            kubectl rollout status deployment/${svc} --namespace=ctse-app --timeout=180s
+          done
