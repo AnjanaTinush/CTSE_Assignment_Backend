@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: ctse-app
+  labels:
+    app: api-gateway
+spec:
+  selector:
+    app: api-gateway
+  # LoadBalancer provisions a public IP via the cloud provider (EKS/GKE/AKS).
+  # Change to NodePort if your cluster does not support LoadBalancer.
+  type: LoadBalancer
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3300

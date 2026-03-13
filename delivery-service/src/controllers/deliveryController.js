@@ -1,81 +1,115 @@
 const Delivery = require('../models/Delivery');
 const axios = require('axios');
+const Joi = require('joi');
+
+const orderServiceClient = axios.create({ timeout: 5000 });
+
+const createDeliverySchema = Joi.object({
+    orderId: Joi.string().required(),
+    address: Joi.string().trim().min(5).max(500).required(),
+    estimatedDelivery: Joi.date().optional()
+});
+
+const updateDeliverySchema = Joi.object({
+    status: Joi.string().valid('ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'DELIVERED').required()
+});
 
 const createDelivery = async (req, res) => {
     try {
-        const { orderId, address, estimatedDelivery } = req.body;
+        const { error, value } = createDeliverySchema.validate(req.body);
+        if (error) {
+            return res.status(400).json({ message: error.details[0].message });
+        }
 
-        // 1. Validate Order exists
-        let order;
+        const { orderId, address, estimatedDelivery } = value;
+
         try {
-            const orderRes = await axios.get(`${process.env.ORDER_SERVICE_URL}/orders/${orderId}`, {
+            await orderServiceClient.get(`${process.env.ORDER_SERVICE_URL}/orders/${orderId}`, {
                 headers: { Authorization: req.headers.authorization }
             });
-            order = orderRes.data;
         } catch (err) {
             return res.status(404).json({ message: 'Order not found or inaccessible' });
         }
 
-        // 2. Create the delivery record
         const delivery = await Delivery.create({
             orderId,
-            driverId: req.user.id, // Usually a driver is logged in creating this, or ADMIN assigned
+            driverId: req.user.id,
             address,
-            estimatedDelivery: estimatedDelivery || new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) // Default 2 days
+            estimatedDelivery: estimatedDelivery || new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
         });
 
-        // 3. Update Order status to SHIPPED and link delivery ID via inter-service call
-        await axios.patch(`${process.env.ORDER_SERVICE_URL}/orders/${orderId}/status`,
+        await orderServiceClient.patch(
+            `${process.env.ORDER_SERVICE_URL}/orders/${orderId}/status`,
             { status: 'SHIPPED', deliveryId: delivery._id },
             { headers: { Authorization: req.headers.authorization } }
         );
 
-        res.status(201).json(delivery);
+        return res.status(201).json(delivery);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        if (error.response) {
+            return res.status(error.response.status).json({
+                message: error.response.data?.message || 'Failed to synchronize order status'
+            });
+        }
+
+        return res.status(500).json({ message: error.message });
     }
 };
 
 const getDeliveries = async (req, res) => {
     try {
         const deliveries = await Delivery.find({});
-        res.json(deliveries);
+        return res.json(deliveries);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        return res.status(500).json({ message: error.message });
     }
 };
 
 const getDeliveryById = async (req, res) => {
     try {
         const delivery = await Delivery.findById(req.params.id);
-        if (!delivery) return res.status(404).json({ message: 'Delivery not found' });
-        res.json(delivery);
+        if (!delivery) {
+            return res.status(404).json({ message: 'Delivery not found' });
+        }
+
+        return res.json(delivery);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        return res.status(500).json({ message: error.message });
     }
 };
 
 const updateDeliveryStatus = async (req, res) => {
     try {
-        const { status } = req.body;
+        const { error, value } = updateDeliverySchema.validate(req.body);
+        if (error) {
+            return res.status(400).json({ message: error.details[0].message });
+        }
+
         const delivery = await Delivery.findById(req.params.id);
+        if (!delivery) {
+            return res.status(404).json({ message: 'Delivery not found' });
+        }
 
-        if (!delivery) return res.status(404).json({ message: 'Delivery not found' });
-
-        delivery.status = status;
+        delivery.status = value.status;
         await delivery.save();
 
-        // Sync status with order service if it's DELIVERED
-        if (status === 'DELIVERED') {
-            await axios.patch(`${process.env.ORDER_SERVICE_URL}/orders/${delivery.orderId}/status`,
+        if (value.status === 'DELIVERED') {
+            await orderServiceClient.patch(
+                `${process.env.ORDER_SERVICE_URL}/orders/${delivery.orderId}/status`,
                 { status: 'DELIVERED' },
                 { headers: { Authorization: req.headers.authorization } }
             );
         }
 
-        res.json(delivery);
+        return res.json(delivery);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        if (error.response) {
+            return res.status(error.response.status).json({
+                message: error.response.data?.message || 'Failed to synchronize order status'
+            });
+        }
+
+        return res.status(500).json({ message: error.message });
     }
 };
 

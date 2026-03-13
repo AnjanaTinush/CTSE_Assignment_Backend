@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ctse-config
+  namespace: ctse-app
+  labels:
+    app: ctse
+data:
+  # Internal service URLs (DNS resolved within the cluster)
+  AUTH_SERVICE_URL: "http://auth-service:3301"
+  PRODUCT_SERVICE_URL: "http://product-service:3302"
+  ORDER_SERVICE_URL: "http://order-service:3303"
+  DELIVERY_SERVICE_URL: "http://delivery-service:3304"
+  CORS_ORIGIN: "*"
+  NODE_ENV: "production"

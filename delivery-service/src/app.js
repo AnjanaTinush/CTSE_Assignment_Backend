@@ -2,14 +2,32 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const path = require('path');
+const rateLimit = require('express-rate-limit');
+const swaggerUi = require('swagger-ui-express');
+const YAML = require('yamljs');
 const deliveryRoutes = require('./routes/deliveryRoutes');
 
 const app = express();
 
+const corsOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim()) : '*';
+
+const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: 'Too many requests, please try again later.' }
+});
+
 app.use(express.json());
-app.use(cors());
+app.use(cors({ origin: corsOrigins }));
 app.use(helmet());
 app.use(morgan('dev'));
+app.use(globalLimiter);
+
+const swaggerDocument = YAML.load(path.join(__dirname, 'openapi.yaml'));
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.use('/deliveries', deliveryRoutes);
 

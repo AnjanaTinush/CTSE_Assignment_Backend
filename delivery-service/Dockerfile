@@ -1,7 +1,9 @@
 FROM node:20-alpine
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-EXPOSE 3004
+ENV NODE_ENV=production
+COPY --chown=node:node package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+COPY --chown=node:node . .
+USER node
+EXPOSE 3304
 CMD ["node", "server.js"]
