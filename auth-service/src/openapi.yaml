@@ -3,13 +3,13 @@ info:
   title: Auth Service API
   version: 1.0.0
 servers:
-  - url: http://localhost:3001
+  - url: http://localhost:3301
 paths:
   /health:
     get:
       summary: Service health check
       responses:
-        '200':
+        "200":
           description: OK
   /auth/register:
     post:
@@ -26,7 +26,7 @@ paths:
                 email: { type: string }
                 password: { type: string }
       responses:
-        '201':
+        "201":
           description: Registered
   /auth/login:
     post:
@@ -42,7 +42,7 @@ paths:
                 email: { type: string }
                 password: { type: string }
       responses:
-        '200':
+        "200":
           description: Logged in
   /auth/me:
     get:
@@ -50,7 +50,7 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: Current user
   /users/{id}/public:
     get:
@@ -61,7 +61,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Public profile
   /users/me/orders:
     get:
@@ -69,7 +69,7 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: Order list
 components:
   securitySchemes:

@@ -3,26 +3,26 @@ info:
   title: Product Service API
   version: 1.0.0
 servers:
-  - url: http://localhost:3002
+  - url: http://localhost:3302
 paths:
   /health:
     get:
       summary: Service health check
       responses:
-        '200':
+        "200":
           description: OK
   /products:
     get:
       summary: List products
       responses:
-        '200':
+        "200":
           description: Product list
     post:
       summary: Create product (ADMIN)
       security:
         - bearerAuth: []
       responses:
-        '201':
+        "201":
           description: Created
   /products/{id}:
     get:
@@ -33,7 +33,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Product
   /products/{id}/reserve:
     patch:
@@ -46,7 +46,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Reservation success
   /products/{id}/release:
     patch:
@@ -59,7 +59,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '200':
+        "200":
           description: Release success
 components:
   securitySchemes:
