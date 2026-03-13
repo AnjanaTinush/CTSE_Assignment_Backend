@@ -13,8 +13,8 @@ image_tag           = "replace_with_git_sha"
 cors_origin         = "*"
 
 # Replace with secure values before apply.
-jwt_secret          = "replace_with_strong_secret_min_32_chars"
-auth_mongo_uri      = "mongodb+srv://user:pass@cluster.mongodb.net/auth_db"
-product_mongo_uri   = "mongodb+srv://user:pass@cluster.mongodb.net/product_db"
-order_mongo_uri     = "mongodb+srv://user:pass@cluster.mongodb.net/order_db"
-delivery_mongo_uri  = "mongodb+srv://user:pass@cluster.mongodb.net/delivery_db"
+jwt_secret          = "ctse_jwt"
+auth_mongo_uri      = "mongodb+srv://anjana2:anjana@cluster0.rg6ebmf.mongodb.net/CTSE_auth_db"
+product_mongo_uri   = "mongodb+srv://anjana2:anjana@cluster0.rg6ebmf.mongodb.net/CTSE_product_db"
+order_mongo_uri     = "mongodb+srv://anjana2:anjana@cluster0.rg6ebmf.mongodb.net/CTSE_order_db"
+delivery_mongo_uri  = "mongodb+srv://anjana2:anjana@cluster0.rg6ebmf.mongodb.net/CTSE_delivery_db"
