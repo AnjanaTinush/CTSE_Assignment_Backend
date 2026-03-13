@@ -167,6 +167,11 @@ for service in "${SERVICES[@]}"; do
     -p='[{"op":"replace","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"IfNotPresent"}]' >/dev/null
 done
 
+log "Restarting deployments to pick up rebuilt local images"
+for service in "${SERVICES[@]}"; do
+  "${KUBECTL[@]}" -n "$NAMESPACE" rollout restart "deployment/${service}" >/dev/null
+done
+
 log "Switching api-gateway service to NodePort for local access"
 if ! "${KUBECTL[@]}" -n "$NAMESPACE" patch service api-gateway --type merge \
   -p "{\"spec\":{\"type\":\"NodePort\",\"ports\":[{\"protocol\":\"TCP\",\"port\":80,\"targetPort\":3300,\"nodePort\":${PREFERRED_API_NODE_PORT}}]}}" >/dev/null 2>&1; then

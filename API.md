@@ -4,10 +4,14 @@ This file lists all API endpoints exposed through the API Gateway and a practica
 
 ## 1. Base URL
 
-Use one of these:
+Use this for API Gateway:
 
-- `http://localhost:3300` (if using `kubectl port-forward ... 3300:80`)
-- `http://localhost:<API_GATEWAY_NODE_PORT>` (printed by `deploy-kind.sh`)
+- `http://localhost:30300`
+
+Kubernetes access note:
+
+- `auth-service`, `product-service`, `order-service`, and `delivery-service` are internal `ClusterIP` services.
+- `http://localhost:3301`, `:3302`, `:3303`, `:3304` will not open directly unless you run `kubectl port-forward`.
 
 Set Postman environment variable:
 
@@ -15,7 +19,7 @@ Set Postman environment variable:
 
 Example:
 
-- `base_url = http://localhost:3300`
+- `base_url = http://localhost:30300`
 
 ## 2. Postman Environment Variables
 
@@ -337,7 +341,16 @@ Allowed `status` values:
 
 ## 7. Optional: Service Swagger UIs
 
-When running services directly (or with extra port-forwards), service docs are:
+To open service docs individually on Kubernetes, run port-forwards first:
+
+```bash
+kubectl --context docker-desktop port-forward -n ctse-app svc/auth-service 3301:3301
+kubectl --context docker-desktop port-forward -n ctse-app svc/product-service 3302:3302
+kubectl --context docker-desktop port-forward -n ctse-app svc/order-service 3303:3303
+kubectl --context docker-desktop port-forward -n ctse-app svc/delivery-service 3304:3304
+```
+
+Then open:
 
 - Auth: `http://localhost:3301/docs`
 - Product: `http://localhost:3302/docs`
