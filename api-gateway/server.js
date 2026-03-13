@@ -8,7 +8,10 @@ const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3300;
-const corsOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim()) : '*';
+const defaultCorsOrigins = ['http://localhost:5173', 'http://localhost:5174'];
+const corsOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean)
+    : defaultCorsOrigins;
 
 // Global rate limit at the gateway: 300 requests / 15 min per IP
 const globalLimiter = rateLimit({
@@ -19,7 +22,15 @@ const globalLimiter = rateLimit({
     message: { message: 'Too many requests, please try again later.' }
 });
 
-app.use(cors({ origin: corsOrigins }));
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin || corsOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error(`CORS blocked for origin: ${origin}`));
+    }
+}));
 app.use(helmet());
 app.use(morgan('dev'));
 app.use(globalLimiter);
