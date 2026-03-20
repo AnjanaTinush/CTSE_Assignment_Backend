@@ -33,6 +33,7 @@ services:
       - MONGO_URI=${AUTH_MONGO_URI}
       - JWT_SECRET=${JWT_SECRET}
       - ORDER_SERVICE_URL=http://order-service:3303
+      - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN}
     networks:
       - ctse-network
 
@@ -61,6 +62,9 @@ services:
       - MONGO_URI=${ORDER_MONGO_URI}
       - JWT_SECRET=${JWT_SECRET}
       - PRODUCT_SERVICE_URL=http://product-service:3302
+      - AUTH_SERVICE_URL=http://auth-service:3301
+      - DELIVERY_SERVICE_URL=http://delivery-service:3304
+      - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN}
     networks:
       - ctse-network
 
@@ -75,6 +79,8 @@ services:
       - MONGO_URI=${DELIVERY_MONGO_URI}
       - JWT_SECRET=${JWT_SECRET}
       - ORDER_SERVICE_URL=http://order-service:3303
+      - AUTH_SERVICE_URL=http://auth-service:3301
+      - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN}
     networks:
       - ctse-network
 

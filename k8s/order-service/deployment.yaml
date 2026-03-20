@@ -32,6 +32,16 @@ spec:
                 configMapKeyRef:
                   name: ctse-config
                   key: PRODUCT_SERVICE_URL
+            - name: AUTH_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: ctse-config
+                  key: AUTH_SERVICE_URL
+            - name: DELIVERY_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: ctse-config
+                  key: DELIVERY_SERVICE_URL
             - name: CORS_ORIGIN
               valueFrom:
                 configMapKeyRef:
@@ -52,6 +62,11 @@ spec:
                 secretKeyRef:
                   name: ctse-secrets
                   key: JWT_SECRET
+            - name: INTERNAL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ctse-secrets
+                  key: INTERNAL_SERVICE_TOKEN
           resources:
             requests:
               cpu: "100m"

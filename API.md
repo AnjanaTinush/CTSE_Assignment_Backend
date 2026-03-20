@@ -1,358 +1,463 @@
-# CTSE API Postman Checklist
+# CTSE Backend API
 
-This file lists all API endpoints exposed through the API Gateway and a practical order to verify them in Postman.
+This document describes the upgraded backend contract for:
+
+- Phone-number based login (single login for USER, ADMIN, DELIVERY)
+- Loyalty points and loyalty card behavior
+- Product browsing and admin product management
+- Order lifecycle with pending-only user edits/cancellations
+- Delivery assignment and delivery-user status updates
+- Inter-service communication via internal service discovery URLs
 
 ## 1. Base URL
 
-Use this for API Gateway:
+- API Gateway (Docker): [http://localhost:3300](http://localhost:3300)
+- API Gateway (Kubernetes NodePort from deploy-kind.sh): [http://localhost:30300](http://localhost:30300) (default)
 
-- `http://localhost:30300`
+All routes below are shown as gateway routes.
 
-Kubernetes access note:
+## 2. Authentication
 
-- `auth-service`, `product-service`, `order-service`, and `delivery-service` are internal `ClusterIP` services.
-- `http://localhost:3301`, `:3302`, `:3303`, `:3304` will not open directly unless you run `kubectl port-forward`.
+Use bearer token for protected endpoints:
 
-Set Postman environment variable:
+- Header: Authorization
+- Value: Bearer TOKEN
 
-- `base_url`
+Roles:
 
-Example:
+- USER
+- ADMIN
+- DELIVERY
 
-- `base_url = http://localhost:30300`
+## 3. Core Business Rules
 
-## 2. Postman Environment Variables
+- Email is not required.
+- Registration requires name, contactNumber, password.
+- Loyalty points start at 0 for USER accounts.
+- Loyalty card is automatically created for USER accounts.
+- Users can browse products without login.
+- Only logged-in users/admin can place orders.
+- Payment method is cash on delivery only.
+- Delivery location (address + lat + lng) is required to place an order.
+- USER can edit/cancel only pending own orders.
+- ADMIN can manage users, products, orders, and delivery assignment.
+- DELIVERY users can view their today assignments and set only COMPLETED or CANCELLED_BY_DELIVERY.
 
-Create these variables:
+Order statuses:
 
-- `base_url`
-- `user_token`
-- `admin_token`
-- `delivery_token`
-- `user_id`
-- `product_id`
-- `order_id`
-- `delivery_id`
+- PENDING
+- ASSIGNED
+- OUT_FOR_DELIVERY
+- COMPLETED
+- CANCELLED_BY_USER
+- CANCELLED_BY_ADMIN
+- CANCELLED_BY_DELIVERY
 
-Notes:
+Loyalty behavior:
 
-- `/auth/register` creates users with role `USER` by default.
-- For ADMIN and DELIVERY tests, use existing seeded users (or update role in DB).
+- At order create: optional points redemption is deducted from user points.
+- At successful order create: 1 point is awarded.
+- On cancellation (user/admin/delivery): redeemed points are refunded and awarded point is removed.
 
-## 3. Quick Test Order (Recommended)
+## 4. Service Discovery and Inter-Service Calls
 
-1. `GET /health`
-2. `POST /auth/register` (create USER)
-3. `POST /auth/login` (save `user_token`)
-4. `GET /auth/me`
-5. Product flow with ADMIN token: `POST /products`, `GET /products`, `GET /products/{id}`
-6. User order flow: `POST /orders`, `GET /orders/{id}`, `GET /orders/by-user/{userId}`
-7. Delivery flow (ADMIN or DELIVERY): `POST /deliveries`, `PATCH /deliveries/{id}/status`
+Services communicate using internal DNS URLs configured by environment variables:
 
-## 4. Authentication Header
+- AUTH_SERVICE_URL (default in cluster: [http://auth-service:3301](http://auth-service:3301))
+- PRODUCT_SERVICE_URL (default in cluster: [http://product-service:3302](http://product-service:3302))
+- ORDER_SERVICE_URL (default in cluster: [http://order-service:3303](http://order-service:3303))
+- DELIVERY_SERVICE_URL (default in cluster: [http://delivery-service:3304](http://delivery-service:3304))
 
-For protected routes:
+Internal cross-service operations use x-service-token for protected internal routes.
 
-- Header key: `Authorization`
-- Header value: `Bearer {{user_token}}` (or `{{admin_token}}`, `{{delivery_token}}`)
+## 5. Auth and User Management
 
-## 5. Endpoints
+### POST /auth/register
 
-## Gateway
+Public USER registration.
 
-### Health
-
-- Method: `GET`
-- URL: `{{base_url}}/health`
-- Auth: No
-- Expected: `200 OK`
-
-## Auth Service (via Gateway)
-
-### Register User
-
-- Method: `POST`
-- URL: `{{base_url}}/auth/register`
-- Auth: No
-- Body:
+Body:
 
 ```json
 {
-  "name": "Alice",
-  "email": "alice@example.com",
-  "password": "password123"
+  "name": "Nimal",
+  "contactNumber": "+94771234567",
+  "password": "pass1234"
 }
 ```
 
-- Expected: `201 Created`
-- Save: response `_id` as `user_id`
+Returns:
 
-### Login User
+- User profile (including loyalty fields)
+- JWT token
 
-- Method: `POST`
-- URL: `{{base_url}}/auth/login`
-- Auth: No
-- Body:
+### POST /auth/login
+
+Login with contact number and password.
+
+Body:
 
 ```json
 {
-  "email": "alice@example.com",
-  "password": "password123"
+  "contactNumber": "+94771234567",
+  "password": "pass1234"
 }
 ```
 
-- Expected: `200 OK`
-- Save: response `token` as `user_token`
+### GET /auth/me
 
-### Get Current User
+Protected (USER/ADMIN/DELIVERY). Returns current profile.
 
-- Method: `GET`
-- URL: `{{base_url}}/auth/me`
-- Auth: Yes (`Bearer {{user_token}}`)
-- Expected: `200 OK`
+### GET /auth/me/orders
 
-### Get Public User Profile
+Protected. Returns current user order list via order-service inter-service call.
 
-- Method: `GET`
-- URL: `{{base_url}}/users/{{user_id}}/public`
-- Auth: No
-- Expected: `200 OK`
+### GET /users/:id/public
 
-### Get Current User Orders
+Public profile endpoint used by product/order enrich flows.
 
-- Method: `GET`
-- URL: `{{base_url}}/users/me/orders`
-- Auth: Yes (`Bearer {{user_token}}`)
-- Expected: `200 OK`
+### GET /users
 
-## Product Service (via Gateway)
+ADMIN only. Query filters:
 
-### Create Product (ADMIN)
+- role=USER|ADMIN|DELIVERY
+- contactNumber=PHONE_NUMBER
+- search=NAME_PART
 
-- Method: `POST`
-- URL: `{{base_url}}/products`
-- Auth: Yes (`Bearer {{admin_token}}`)
-- Body:
+### POST /users
+
+ADMIN only. Create managed user (ADMIN/USER/DELIVERY).
+
+Body:
 
 ```json
 {
-  "name": "Laptop",
-  "description": "Business laptop",
-  "price": 1200,
-  "stock": 8,
-  "category": "Electronics"
+  "name": "Delivery One",
+  "contactNumber": "+94770001122",
+  "password": "pass1234",
+  "role": "DELIVERY"
 }
 ```
 
-- Expected: `201 Created`
-- Save: response `_id` as `product_id`
+### GET /users/:id
 
-### List Products
+Protected. ADMIN can fetch any profile; users can fetch own profile.
 
-- Method: `GET`
-- URL: `{{base_url}}/products`
-- Auth: No
-- Expected: `200 OK`
+### GET /users/by-contact/:contactNumber
 
-### Get Product By ID
+ADMIN only. Lookup customer/user by contact number.
 
-- Method: `GET`
-- URL: `{{base_url}}/products/{{product_id}}`
-- Auth: No
-- Expected: `200 OK`
+### POST /users/customers/lookup-or-create
 
-### Reserve Product Quantity
+ADMIN only. Finds USER by contact, or creates one automatically if not present.
 
-- Method: `PATCH`
-- URL: `{{base_url}}/products/{{product_id}}/reserve`
-- Auth: Yes (`Bearer {{user_token}}` or `{{admin_token}}` or `{{delivery_token}}`)
-- Body:
+If created:
+
+- role is USER
+- password defaults to contactNumber
+- loyalty card is created
+
+Body:
 
 ```json
 {
-  "quantity": 1
+  "contactNumber": "+94775554433",
+  "name": "Walk-in Customer"
 }
 ```
 
-- Expected: `200 OK`
+### PATCH /users/:id/loyalty
 
-### Release Product Quantity
+ADMIN only. Manual loyalty adjustment.
 
-- Method: `PATCH`
-- URL: `{{base_url}}/products/{{product_id}}/release`
-- Auth: Yes (`Bearer {{user_token}}` or `{{admin_token}}` or `{{delivery_token}}`)
-- Body:
+Body:
 
 ```json
 {
-  "quantity": 1
+  "operation": "ADD",
+  "points": 10,
+  "reason": "Customer compensation"
 }
 ```
 
-- Expected: `200 OK`
+operation values: ADD, DEDUCT
 
-## Order Service (via Gateway)
+## 6. Product APIs
 
-### Create Order (USER)
+### GET /products
 
-- Method: `POST`
-- URL: `{{base_url}}/orders`
-- Auth: Yes (`Bearer {{user_token}}`)
-- Body:
+Public listing with seller profile enrichment.
+
+Optional query:
+
+- search=NAME
+- category=CATEGORY
+- inStock=true|false
+
+### GET /products/:id
+
+Public product details.
+
+### POST /products
+
+ADMIN only. Create product.
+
+Body:
+
+```json
+{
+  "name": "Rice 5kg",
+  "description": "Premium white rice",
+  "price": 540,
+  "stock": 60,
+  "category": "Grocery",
+  "imageUrl": "https://example.com/rice.jpg"
+}
+```
+
+### PATCH /products/:id
+
+ADMIN only. Update any product fields.
+
+### DELETE /products/:id
+
+ADMIN only. Permanently delete product.
+
+### PATCH /products/:id/reserve
+
+Protected (USER/ADMIN/DELIVERY). Internal order stock reservation endpoint.
+
+Body:
+
+```json
+{
+  "quantity": 2
+}
+```
+
+### PATCH /products/:id/release
+
+Protected (USER/ADMIN/DELIVERY). Internal rollback/release endpoint.
+
+## 7. Order APIs
+
+### POST /orders
+
+Protected (USER or ADMIN).
+
+For USER flow:
+
+- creates order for current logged user
+
+For ADMIN flow:
+
+- must provide customerContactNumber (system finds or auto-creates customer)
+
+Body:
 
 ```json
 {
   "items": [
-    {
-      "productId": "{{product_id}}",
-      "quantity": 1
-    }
-  ]
+    { "productId": "<product-id>", "quantity": 2 },
+    { "productId": "<product-id>", "quantity": 1 }
+  ],
+  "deliveryLocation": {
+    "address": "No.10, Main Street, Colombo",
+    "latitude": 6.9271,
+    "longitude": 79.8612
+  },
+  "loyaltyPointsToUse": 5,
+  "customerContactNumber": "+94775554433"
 }
 ```
 
-- Expected: `201 Created`
-- Save: response `_id` as `order_id`
+Notes:
 
-### List All Orders (ADMIN)
+- customerContactNumber is required only when ADMIN places order.
+- loyaltyPointsToUse is optional.
 
-- Method: `GET`
-- URL: `{{base_url}}/orders`
-- Auth: Yes (`Bearer {{admin_token}}`)
-- Expected: `200 OK`
+### GET /orders
 
-### Get Orders By User
+ADMIN only. Query filters:
 
-- Method: `GET`
-- URL: `{{base_url}}/orders/by-user/{{user_id}}`
-- Auth: Yes (`Bearer {{user_token}}` for own ID, or `{{admin_token}}`)
-- Expected: `200 OK`
+- status=STATUS
+- deliveryUserId=DELIVERY_USER_ID
+- contactNumber=PHONE_NUMBER
 
-### Get Order By ID
+### GET /orders/my
 
-- Method: `GET`
-- URL: `{{base_url}}/orders/{{order_id}}`
-- Auth: Yes (`Bearer {{user_token}}` for owner, or `{{admin_token}}` / `{{delivery_token}}`)
-- Expected: `200 OK`
+Protected (USER/ADMIN). Returns orders for current token user.
 
-### Update Order Status (ADMIN or DELIVERY)
+### GET /orders/by-user/:userId
 
-- Method: `PATCH`
-- URL: `{{base_url}}/orders/{{order_id}}/status`
-- Auth: Yes (`Bearer {{admin_token}}` or `{{delivery_token}}`)
-- Body:
+Protected. ADMIN or same user only.
+
+### GET /orders/:id
+
+Protected. ADMIN, owner USER, or assigned DELIVERY user.
+
+### GET /orders/:id/tracking
+
+Protected. Returns order status + assignment + delivery record snapshot.
+
+### PATCH /orders/:id
+
+USER only. Edit pending own order.
+
+Allowed fields:
+
+- items
+- deliveryLocation
+
+Rule: only when status is PENDING.
+
+### PATCH /orders/:id/cancel
+
+Protected (USER/ADMIN/DELIVERY).
+
+Rules:
+
+- USER: only own order and only PENDING
+- ADMIN: can cancel non-terminal orders
+- DELIVERY: only assigned orders
+
+Body:
 
 ```json
 {
-  "status": "SHIPPED"
+  "reason": "Customer requested cancellation"
 }
 ```
 
-Optional field:
+### PATCH /orders/:id/assign-delivery
+
+ADMIN only. Assign delivery user to order and moves order to ASSIGNED.
+
+Body:
 
 ```json
 {
-  "status": "SHIPPED",
-  "deliveryId": "{{delivery_id}}"
+  "deliveryUserId": "<delivery-user-id>",
+  "deliveryUserName": "Rider A",
+  "deliveryId": "<optional-existing-delivery-id>"
 }
 ```
 
-- Expected: `200 OK`
+### PATCH /orders/:id/status
 
-Allowed `status` values:
+ADMIN or DELIVERY.
 
-- `PENDING`
-- `CONFIRMED`
-- `SHIPPED`
-- `DELIVERED`
-- `CANCELLED`
+Allowed statuses:
 
-## Delivery Service (via Gateway)
+- ASSIGNED
+- OUT_FOR_DELIVERY
+- COMPLETED
+- CANCELLED_BY_ADMIN
+- CANCELLED_BY_DELIVERY
 
-### Create Delivery (ADMIN or DELIVERY)
+Rule for DELIVERY role:
 
-- Method: `POST`
-- URL: `{{base_url}}/deliveries`
-- Auth: Yes (`Bearer {{admin_token}}` or `{{delivery_token}}`)
-- Body:
+- can only set COMPLETED or CANCELLED_BY_DELIVERY
+
+### DELETE /orders/:id
+
+ADMIN only. Permanently deletes order.
+
+## 8. Delivery APIs
+
+### POST /deliveries/assign
+
+ADMIN only. Assigns delivery user to an order.
+
+Body:
 
 ```json
 {
-  "orderId": "{{order_id}}",
-  "address": "123 Main Street, Colombo"
+  "orderId": "<order-id>",
+  "deliveryUserId": "<delivery-user-id>",
+  "deliveryUserName": "Rider A",
+  "notes": "Handle carefully"
 }
 ```
 
-Optional field:
+Alias: POST /deliveries (same behavior)
+
+### GET /deliveries
+
+ADMIN only. Query:
+
+- status=STATUS
+- deliveryUserId=DELIVERY_USER_ID
+
+### GET /deliveries/my/today
+
+DELIVERY only. Returns current day assigned deliveries for logged delivery user.
+
+### GET /deliveries/:id
+
+ADMIN or assigned DELIVERY user.
+
+### GET /deliveries/order/:orderId
+
+Protected (USER/ADMIN/DELIVERY).
+
+- USER can access only if they can access the related order.
+
+### PATCH /deliveries/:id/status
+
+ADMIN or DELIVERY.
+
+Body:
 
 ```json
 {
-  "orderId": "{{order_id}}",
-  "address": "123 Main Street, Colombo",
-  "estimatedDelivery": "2026-03-20T10:00:00.000Z"
+  "status": "COMPLETED",
+  "notes": "Handed over to customer"
 }
 ```
 
-- Expected: `201 Created`
-- Save: response `_id` as `delivery_id`
+Allowed values:
 
-### List Deliveries (ADMIN)
+- OUT_FOR_DELIVERY
+- COMPLETED
+- CANCELLED_BY_DELIVERY
 
-- Method: `GET`
-- URL: `{{base_url}}/deliveries`
-- Auth: Yes (`Bearer {{admin_token}}`)
-- Expected: `200 OK`
+Rule for DELIVERY role:
 
-### Get Delivery By ID (ADMIN or DELIVERY)
+- can only set COMPLETED or CANCELLED_BY_DELIVERY
 
-- Method: `GET`
-- URL: `{{base_url}}/deliveries/{{delivery_id}}`
-- Auth: Yes (`Bearer {{admin_token}}` or `{{delivery_token}}`)
-- Expected: `200 OK`
+## 9. Typical End-to-End Flows
 
-### Update Delivery Status (ADMIN or DELIVERY)
+### Customer Flow
 
-- Method: `PATCH`
-- URL: `{{base_url}}/deliveries/{{delivery_id}}/status`
-- Auth: Yes (`Bearer {{admin_token}}` or `{{delivery_token}}`)
-- Body:
+1. Browse products: GET /products
+2. Register/Login: POST /auth/register or POST /auth/login
+3. Place order with map location: POST /orders
+4. View order history: GET /orders/my
+5. Edit pending order: PATCH /orders/:id
+6. Cancel pending order: PATCH /orders/:id/cancel
+7. Track assigned delivery: GET /orders/:id/tracking
 
-```json
-{
-  "status": "IN_TRANSIT"
-}
-```
+### Admin Flow
 
-- Expected: `200 OK`
+1. Login as ADMIN: POST /auth/login
+2. Manage users by role: GET /users?role=...
+3. Search or auto-create customer by phone: POST /users/customers/lookup-or-create
+4. Manage products: POST/PATCH/DELETE /products
+5. View/manage all orders: GET /orders, PATCH /orders/:id/status
+6. Assign delivery: POST /deliveries/assign
+7. Permanently delete order if needed: DELETE /orders/:id
 
-Allowed `status` values:
+### Delivery Flow
 
-- `ASSIGNED`
-- `PICKED_UP`
-- `IN_TRANSIT`
-- `DELIVERED`
+1. Login as DELIVERY: POST /auth/login
+2. View today assignments: GET /deliveries/my/today
+3. Complete or cancel assigned delivery: PATCH /deliveries/:id/status
 
-## 6. Common Error Checks in Postman
+## 10. Common Error Responses
 
-- `401 Unauthorized`: Missing/invalid token.
-- `403 Forbidden`: Token role is not allowed for the endpoint.
-- `404 Not Found`: Invalid resource ID or dependent service data missing.
-- `400 Bad Request`: Validation issue (missing fields, invalid enums, invalid quantity).
-
-## 7. Optional: Service Swagger UIs
-
-To open service docs individually on Kubernetes, run port-forwards first:
-
-```bash
-kubectl --context docker-desktop port-forward -n ctse-app svc/auth-service 3301:3301
-kubectl --context docker-desktop port-forward -n ctse-app svc/product-service 3302:3302
-kubectl --context docker-desktop port-forward -n ctse-app svc/order-service 3303:3303
-kubectl --context docker-desktop port-forward -n ctse-app svc/delivery-service 3304:3304
-```
-
-Then open:
-
-- Auth: `http://localhost:3301/docs`
-- Product: `http://localhost:3302/docs`
-- Order: `http://localhost:3303/docs`
-- Delivery: `http://localhost:3304/docs`
+- 400 Bad Request: validation failures, insufficient stock, invalid status transitions
+- 401 Unauthorized: missing or invalid token
+- 403 Forbidden: role/ownership violation
+- 404 Not Found: user/product/order/delivery not found
+- 502 Bad Gateway: downstream service call failure

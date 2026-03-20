@@ -54,6 +54,11 @@ spec:
                 secretKeyRef:
                   name: ctse-secrets
                   key: JWT_SECRET
+            - name: INTERNAL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ctse-secrets
+                  key: INTERNAL_SERVICE_TOKEN
           resources:
             requests:
               cpu: "100m"
