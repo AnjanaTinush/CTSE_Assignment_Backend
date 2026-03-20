@@ -58,6 +58,7 @@ source "$ROOT_DIR/.env"
 set +a
 
 : "${JWT_SECRET:?JWT_SECRET is required in .env}"
+: "${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required in .env}"
 : "${AUTH_MONGO_URI:?AUTH_MONGO_URI is required in .env}"
 : "${PRODUCT_MONGO_URI:?PRODUCT_MONGO_URI is required in .env}"
 : "${ORDER_MONGO_URI:?ORDER_MONGO_URI is required in .env}"
@@ -137,6 +138,7 @@ log "Applying namespace"
 log "Creating or updating Kubernetes secret"
 "${KUBECTL[@]}" -n "$NAMESPACE" create secret generic ctse-secrets \
   --from-literal=JWT_SECRET="$JWT_SECRET" \
+  --from-literal=INTERNAL_SERVICE_TOKEN="$INTERNAL_SERVICE_TOKEN" \
   --from-literal=AUTH_MONGO_URI="$AUTH_MONGO_URI" \
   --from-literal=PRODUCT_MONGO_URI="$PRODUCT_MONGO_URI" \
   --from-literal=ORDER_MONGO_URI="$ORDER_MONGO_URI" \
