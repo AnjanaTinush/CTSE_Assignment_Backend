@@ -8,10 +8,18 @@ const {
     reserveProduct,
     releaseProduct
 } = require('../controllers/productController');
+const { getCategories, createCategory, updateCategory, deleteCategory } = require('../controllers/categoryController');
 const { protect, authorize } = require('../middlewares/auth');
 
 const router = express.Router();
 
+// Category routes (nested under /products/categories)
+router.get('/categories', getCategories);
+router.post('/categories', protect, authorize('ADMIN'), createCategory);
+router.patch('/categories/:id', protect, authorize('ADMIN'), updateCategory);
+router.delete('/categories/:id', protect, authorize('ADMIN'), deleteCategory);
+
+// Product routes
 router.post('/', protect, authorize('ADMIN'), createProduct);
 router.get('/', getProducts);
 router.get('/:id', getProductById);
