@@ -120,7 +120,8 @@ log "Using Kubernetes context '$K8S_CONTEXT'"
 
 log "Building Docker images"
 for service in "${SERVICES[@]}"; do
-  docker build -t "${service}:${IMAGE_TAG}" "$ROOT_DIR/$service"
+  docker build --no-cache -t "${service}:${IMAGE_TAG}" "$ROOT_DIR/$service"
+
 done
 
 if [[ "$CLUSTER_MODE" == "kind" ]]; then
@@ -166,7 +167,8 @@ log "Updating deployments to use local images"
 for service in "${SERVICES[@]}"; do
   "${KUBECTL[@]}" -n "$NAMESPACE" set image "deployment/${service}" "${service}=${service}:${IMAGE_TAG}" >/dev/null
   "${KUBECTL[@]}" -n "$NAMESPACE" patch "deployment/${service}" --type json \
-    -p='[{"op":"replace","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"IfNotPresent"}]' >/dev/null
+    -p='[{"op":"replace","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"Always"}]' >/dev/null
+
 done
 
 log "Restarting deployments to pick up rebuilt local images"
