@@ -16,7 +16,6 @@ const formatError = (error, defaultMessage) => {
             message: error.response.data?.message || defaultMessage
         };
     }
-
     return {
         status: 500,
         message: error.message || defaultMessage
@@ -24,15 +23,18 @@ const formatError = (error, defaultMessage) => {
 };
 
 const createDeliverySchema = Joi.object({
-    orderId: Joi.string().required(),
-    deliveryUserId: Joi.string().required(),
-    deliveryUserName: Joi.string().trim().min(2).max(100).optional(),
-    notes: Joi.string().trim().max(300).optional()
+    orderId:               Joi.string().required(),
+    deliveryUserId:        Joi.string().required(),
+    deliveryUserName:      Joi.string().trim().min(2).max(100).optional(),
+    notes:                 Joi.string().trim().max(300).optional(),
+    priority:              Joi.string().valid('NORMAL', 'HIGH', 'URGENT').default('NORMAL'),
+    estimatedDeliveryTime: Joi.date().iso().optional()
 });
 
 const updateDeliverySchema = Joi.object({
-    status: Joi.string().valid('OUT_FOR_DELIVERY', 'COMPLETED', 'CANCELLED_BY_DELIVERY').required(),
-    notes: Joi.string().trim().max(300).optional()
+    status:        Joi.string().valid('PICKED_UP', 'OUT_FOR_DELIVERY', 'COMPLETED', 'CANCELLED_BY_DELIVERY').required(),
+    notes:         Joi.string().trim().max(300).optional(),
+    failureReason: Joi.string().trim().max(500).optional()
 });
 
 const isTerminalStatus = (status) => ['COMPLETED', 'CANCELLED_BY_DELIVERY'].includes(status);
@@ -67,9 +69,10 @@ const createDelivery = async (req, res) => {
             return res.status(400).json({ message: error.details[0].message });
         }
 
-        const orderResponse = await orderServiceClient.get(`${process.env.ORDER_SERVICE_URL}/orders/${value.orderId}`, {
-            headers: { Authorization: req.headers.authorization }
-        });
+        const orderResponse = await orderServiceClient.get(
+            `${process.env.ORDER_SERVICE_URL}/orders/${value.orderId}`,
+            { headers: { Authorization: req.headers.authorization } }
+        );
         const order = orderResponse.data;
 
         if (isTerminalStatus(order.status)) {
@@ -81,27 +84,31 @@ const createDelivery = async (req, res) => {
         const delivery = await Delivery.findOneAndUpdate(
             { orderId: value.orderId },
             {
-                orderId: value.orderId,
-                deliveryUserId: value.deliveryUserId,
-                deliveryUserName: value.deliveryUserName || deliveryUser.name,
-                assignedByAdminId: req.user.id,
-                customerId: order.userId,
+                orderId:               value.orderId,
+                deliveryUserId:        value.deliveryUserId,
+                deliveryUserName:      value.deliveryUserName || deliveryUser.name,
+                assignedByAdminId:     req.user.id,
+                customerId:            order.userId,
                 customerContactNumber: order.userContactNumber,
-                deliveryLocation: order.deliveryLocation,
-                status: 'ASSIGNED',
-                notes: value.notes,
-                assignedAt: new Date(),
-                completedAt: null,
-                cancelledAt: null
+                deliveryLocation:      order.deliveryLocation,
+                priority:              value.priority || 'NORMAL',
+                estimatedDeliveryTime: value.estimatedDeliveryTime || null,
+                status:                'ASSIGNED',
+                notes:                 value.notes,
+                failureReason:         null,
+                assignedAt:            new Date(),
+                pickedUpAt:            null,
+                completedAt:           null,
+                cancelledAt:           null
             },
             { upsert: true, new: true, setDefaultsOnInsert: true }
         );
 
         await syncOrder(value.orderId, req.headers.authorization, {
-            status: 'ASSIGNED',
-            deliveryUserId: value.deliveryUserId,
+            status:           'ASSIGNED',
+            deliveryUserId:   value.deliveryUserId,
             deliveryUserName: value.deliveryUserName || deliveryUser.name,
-            deliveryId: delivery._id
+            deliveryId:       delivery._id
         });
 
         return res.status(201).json(delivery);
@@ -115,13 +122,9 @@ const getDeliveries = async (req, res) => {
     try {
         const query = {};
 
-        if (req.query.status) {
-            query.status = req.query.status;
-        }
-
-        if (req.query.deliveryUserId) {
-            query.deliveryUserId = req.query.deliveryUserId;
-        }
+        if (req.query.status)         query.status = req.query.status;
+        if (req.query.deliveryUserId) query.deliveryUserId = req.query.deliveryUserId;
+        if (req.query.priority)       query.priority = req.query.priority;
 
         const deliveries = await Delivery.find(query).sort({ assignedAt: -1 });
         return res.json(deliveries);
@@ -141,7 +144,7 @@ const getMyTodayDeliveries = async (req, res) => {
         const deliveries = await Delivery.find({
             deliveryUserId: req.user.id,
             assignedAt: { $gte: startOfDay, $lt: endOfDay }
-        }).sort({ assignedAt: -1 });
+        }).sort({ priority: -1, assignedAt: -1 });
 
         return res.json(deliveries);
     } catch (error) {
@@ -178,9 +181,10 @@ const getDeliveryByOrderId = async (req, res) => {
         }
 
         if (req.user.role === 'USER') {
-            await orderServiceClient.get(`${process.env.ORDER_SERVICE_URL}/orders/${req.params.orderId}`, {
-                headers: { Authorization: req.headers.authorization }
-            });
+            await orderServiceClient.get(
+                `${process.env.ORDER_SERVICE_URL}/orders/${req.params.orderId}`,
+                { headers: { Authorization: req.headers.authorization } }
+            );
         }
 
         return res.json(delivery);
@@ -207,8 +211,8 @@ const updateDeliveryStatus = async (req, res) => {
         }
 
         if (req.user.role === 'DELIVERY') {
-            if (!['COMPLETED', 'CANCELLED_BY_DELIVERY'].includes(value.status)) {
-                return res.status(403).json({ message: 'Delivery users can set only COMPLETED or CANCELLED_BY_DELIVERY' });
+            if (!['PICKED_UP', 'OUT_FOR_DELIVERY', 'COMPLETED', 'CANCELLED_BY_DELIVERY'].includes(value.status)) {
+                return res.status(403).json({ message: 'Invalid status transition for delivery role' });
             }
 
             if (delivery.deliveryUserId !== req.user.id) {
@@ -217,7 +221,11 @@ const updateDeliveryStatus = async (req, res) => {
         }
 
         delivery.status = value.status;
-        delivery.notes = value.notes || delivery.notes;
+        if (value.notes) delivery.notes = value.notes;
+
+        if (value.status === 'PICKED_UP') {
+            delivery.pickedUpAt = new Date();
+        }
 
         if (value.status === 'COMPLETED') {
             delivery.completedAt = new Date();
@@ -225,16 +233,17 @@ const updateDeliveryStatus = async (req, res) => {
 
         if (value.status === 'CANCELLED_BY_DELIVERY') {
             delivery.cancelledAt = new Date();
+            if (value.failureReason) delivery.failureReason = value.failureReason;
         }
 
         await delivery.save();
 
         await syncOrder(delivery.orderId, req.headers.authorization, {
-            status: value.status,
-            cancellationReason: value.status === 'CANCELLED_BY_DELIVERY' ? value.notes : undefined,
-            deliveryUserId: delivery.deliveryUserId,
-            deliveryUserName: delivery.deliveryUserName,
-            deliveryId: delivery._id
+            status:             value.status,
+            cancellationReason: value.status === 'CANCELLED_BY_DELIVERY' ? (value.failureReason || value.notes) : undefined,
+            deliveryUserId:     delivery.deliveryUserId,
+            deliveryUserName:   delivery.deliveryUserName,
+            deliveryId:         delivery._id
         });
 
         return res.json(delivery);
