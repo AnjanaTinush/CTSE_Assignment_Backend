@@ -224,12 +224,17 @@ jobs:
       PRODUCT_MONGO_URI: ${{ secrets.PRODUCT_MONGO_URI }}
       ORDER_MONGO_URI: ${{ secrets.ORDER_MONGO_URI }}
       DELIVERY_MONGO_URI: ${{ secrets.DELIVERY_MONGO_URI }}
+      LETSENCRYPT_EMAIL: ${{ secrets.LETSENCRYPT_EMAIL }}
+      API_HOST: ${{ vars.K8S_API_HOST || '20-44-216-47.sslip.io' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@v3
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
 
       - name: Configure kubectl from secret
         run: |
@@ -247,6 +252,7 @@ jobs:
             PRODUCT_MONGO_URI
             ORDER_MONGO_URI
             DELIVERY_MONGO_URI
+            LETSENCRYPT_EMAIL
           )
 
           for key in "${required[@]}"; do
@@ -267,6 +273,29 @@ jobs:
               k8s/${svc}/deployment.yaml
           done
 
+      - name: Install/upgrade ingress-nginx controller
+        run: |
+          helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+          helm repo update
+          helm upgrade --install nginx-ingress ingress-nginx/ingress-nginx \
+            --namespace ingress-nginx \
+            --create-namespace \
+            --set controller.service.type=LoadBalancer
+
+      - name: Install/upgrade cert-manager
+        run: |
+          helm repo add jetstack https://charts.jetstack.io
+          helm repo update
+          helm upgrade --install cert-manager jetstack/cert-manager \
+            --namespace cert-manager \
+            --create-namespace \
+            --set crds.enabled=true
+
+      - name: Render HTTPS manifests
+        run: |
+          sed "s|__LETSENCRYPT_EMAIL__|${LETSENCRYPT_EMAIL}|g" k8s/cert-manager-setup.yaml > /tmp/cert-manager-setup.yaml
+          sed "s|__API_HOST__|${API_HOST}|g" k8s/ingress.yaml > /tmp/ingress.yaml
+
       - name: Apply namespace, config, and secrets
         run: |
           kubectl apply -f k8s/namespace.yaml
@@ -281,6 +310,8 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f -
 
           kubectl apply -f k8s/configmap.yaml
+          kubectl apply -f /tmp/cert-manager-setup.yaml
+          kubectl apply -f /tmp/ingress.yaml
 
       - name: Apply service deployments
         run: |

@@ -11,10 +11,10 @@ spec:
   ingressClassName: nginx
   tls:
   - hosts:
-    - api.ctse-assignment.com  # Change this to your domain
+    - __API_HOST__
     secretName: api-gateway-tls
   rules:
-  - host: api.ctse-assignment.com  # Change this to your domain
+  - host: __API_HOST__
     http:
       paths:
       - path: /
