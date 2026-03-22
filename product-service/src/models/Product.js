@@ -7,6 +7,7 @@ const productSchema = new mongoose.Schema({
     stock: { type: Number, required: true, default: 0, min: 0 },
     sellerId: { type: String, required: true },
     category: { type: String, required: true, trim: true },
+    status: { type: String, enum: ['IN-STORE', 'OUT-STORE'], default: 'IN-STORE' },
     imageUrl: { type: String }
 }, {
     timestamps: true,
