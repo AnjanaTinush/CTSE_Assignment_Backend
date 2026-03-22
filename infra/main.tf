@@ -83,11 +83,12 @@ resource "kubernetes_secret_v1" "ctse" {
   type = "Opaque"
 
   data = {
-    JWT_SECRET         = var.jwt_secret
-    AUTH_MONGO_URI     = var.auth_mongo_uri
-    PRODUCT_MONGO_URI  = var.product_mongo_uri
-    ORDER_MONGO_URI    = var.order_mongo_uri
-    DELIVERY_MONGO_URI = var.delivery_mongo_uri
+    JWT_SECRET             = var.jwt_secret
+    INTERNAL_SERVICE_TOKEN = var.internal_service_token
+    AUTH_MONGO_URI         = var.auth_mongo_uri
+    PRODUCT_MONGO_URI      = var.product_mongo_uri
+    ORDER_MONGO_URI        = var.order_mongo_uri
+    DELIVERY_MONGO_URI     = var.delivery_mongo_uri
   }
 }
 
@@ -182,6 +183,16 @@ resource "kubernetes_deployment_v1" "auth_service" {
               secret_key_ref {
                 name = kubernetes_secret_v1.ctse.metadata[0].name
                 key  = "JWT_SECRET"
+              }
+            }
+          }
+
+          env {
+            name = "INTERNAL_SERVICE_TOKEN"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret_v1.ctse.metadata[0].name
+                key  = "INTERNAL_SERVICE_TOKEN"
               }
             }
           }
@@ -322,6 +333,26 @@ resource "kubernetes_deployment_v1" "product_service" {
           }
 
           env {
+            name = "AUTH_SERVICE_URL"
+            value_from {
+              config_map_key_ref {
+                name = kubernetes_config_map_v1.ctse.metadata[0].name
+                key  = "AUTH_SERVICE_URL"
+              }
+            }
+          }
+
+          env {
+            name = "DELIVERY_SERVICE_URL"
+            value_from {
+              config_map_key_ref {
+                name = kubernetes_config_map_v1.ctse.metadata[0].name
+                key  = "DELIVERY_SERVICE_URL"
+              }
+            }
+          }
+
+          env {
             name = "MONGO_URI"
             value_from {
               secret_key_ref {
@@ -337,6 +368,16 @@ resource "kubernetes_deployment_v1" "product_service" {
               secret_key_ref {
                 name = kubernetes_secret_v1.ctse.metadata[0].name
                 key  = "JWT_SECRET"
+              }
+            }
+          }
+
+          env {
+            name = "INTERNAL_SERVICE_TOKEN"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret_v1.ctse.metadata[0].name
+                key  = "INTERNAL_SERVICE_TOKEN"
               }
             }
           }
@@ -477,6 +518,16 @@ resource "kubernetes_deployment_v1" "order_service" {
           }
 
           env {
+            name = "AUTH_SERVICE_URL"
+            value_from {
+              config_map_key_ref {
+                name = kubernetes_config_map_v1.ctse.metadata[0].name
+                key  = "AUTH_SERVICE_URL"
+              }
+            }
+          }
+
+          env {
             name = "MONGO_URI"
             value_from {
               secret_key_ref {
@@ -492,6 +543,16 @@ resource "kubernetes_deployment_v1" "order_service" {
               secret_key_ref {
                 name = kubernetes_secret_v1.ctse.metadata[0].name
                 key  = "JWT_SECRET"
+              }
+            }
+          }
+
+          env {
+            name = "INTERNAL_SERVICE_TOKEN"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret_v1.ctse.metadata[0].name
+                key  = "INTERNAL_SERVICE_TOKEN"
               }
             }
           }

@@ -21,6 +21,7 @@ Copy-Item ./infra/terraform.tfvars.example ./infra/terraform.tfvars
 Edit `infra/terraform.tfvars` and set:
 - `image_tag` to the value printed by `push-images.ps1`
 - `jwt_secret` (strong value)
+- `internal_service_token` (strong value)
 - all MongoDB URIs
 
 ## 3) Deploy with Terraform

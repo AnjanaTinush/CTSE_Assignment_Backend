@@ -59,6 +59,12 @@ variable "jwt_secret" {
   sensitive   = true
 }
 
+variable "internal_service_token" {
+  description = "Shared token used for internal service-to-service privileged routes"
+  type        = string
+  sensitive   = true
+}
+
 variable "auth_mongo_uri" {
   description = "MongoDB URI for auth-service"
   type        = string
