@@ -4,17 +4,17 @@ metadata:
   name: api-gateway-ingress
   namespace: ctse-app
   annotations:
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 spec:
   ingressClassName: nginx
   tls:
   - hosts:
-    - api.ctse-assignment.com  # Change this to your domain
+    - 20.198.193.186.sslip.io  # Change this to your domain
     secretName: api-gateway-tls
   rules:
-  - host: api.ctse-assignment.com  # Change this to your domain
+  - host: 20.198.193.186.sslip.io  # Change this to your domain
     http:
       paths:
       - path: /
