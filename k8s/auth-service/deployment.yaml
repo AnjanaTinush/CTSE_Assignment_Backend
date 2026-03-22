@@ -6,7 +6,7 @@ metadata:
   labels:
     app: auth-service
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: auth-service
@@ -21,8 +21,8 @@ spec:
         runAsUser: 1000
       containers:
         - name: auth-service
-          # Replace DOCKERHUB_USERNAME with your Docker Hub username
-          image: DOCKERHUB_USERNAME/auth-service:placeholder
+          # Replace praveen1214 with your Docker Hub username
+          image: praveen1214/auth-service:8c1e16c
           imagePullPolicy: Always
           ports:
             - containerPort: 3301
@@ -54,6 +54,11 @@ spec:
                 secretKeyRef:
                   name: ctse-secrets
                   key: JWT_SECRET
+            - name: INTERNAL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ctse-secrets
+                  key: INTERNAL_SERVICE_TOKEN
           resources:
             requests:
               cpu: "100m"

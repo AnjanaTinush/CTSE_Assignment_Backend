@@ -20,6 +20,11 @@ const globalLimiter = rateLimit({
     message: { message: 'Too many requests, please try again later.' }
 });
 
+app.use((req, res, next) => {
+    console.log(`[AppDebug] ${req.method} ${req.url}`);
+    next();
+});
+
 app.use(express.json());
 app.use(cors({ origin: corsOrigins }));
 app.use(helmet());
@@ -29,7 +34,10 @@ app.use(globalLimiter);
 const swaggerDocument = YAML.load(path.join(__dirname, 'openapi.yaml'));
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
+// 🚀 ROUTE CONFIGURATION
 app.use('/products', productRoutes);
+
+
 
 app.get('/health', (req, res) => res.status(200).json({ status: 'OK', service: 'product-service' }));
 

@@ -6,3 +6,14 @@ dist
 .DS_Store
 *.log
 coverage
+
+# Terraform
+terraform.tfstate
+terraform.tfstate.*
+infra/.terraform/
+infra/.terraform.lock.hcl
+infra/*.tfstate
+infra/*.tfstate.*
+infra/terraform.tfvars
+infra/tfplan
+infra/tfplan.*

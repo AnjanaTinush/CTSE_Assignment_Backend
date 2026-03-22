@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const path = require('path');
+const path = require('node:path');
 const rateLimit = require('express-rate-limit');
 const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
@@ -41,8 +41,7 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.use('/auth/login', authLimiter);
 app.use('/auth/register', authLimiter);
-app.use('/auth', authRoutes);
-app.use('/users', authRoutes);
+app.use('/', authRoutes);
 
 app.get('/health', (req, res) => res.status(200).json({ status: 'OK', service: 'auth-service' }));
 

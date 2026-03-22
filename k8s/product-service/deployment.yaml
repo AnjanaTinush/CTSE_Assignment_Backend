@@ -6,7 +6,7 @@ metadata:
   labels:
     app: product-service
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: product-service
@@ -20,7 +20,7 @@ spec:
         runAsUser: 1000
       containers:
         - name: product-service
-          image: DOCKERHUB_USERNAME/product-service:placeholder
+          image: praveen1214/product-service:8c1e16c
           imagePullPolicy: Always
           ports:
             - containerPort: 3302

@@ -6,7 +6,7 @@ metadata:
   labels:
     app: delivery-service
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: delivery-service
@@ -20,7 +20,7 @@ spec:
         runAsUser: 1000
       containers:
         - name: delivery-service
-          image: DOCKERHUB_USERNAME/delivery-service:placeholder
+          image: praveen1214/delivery-service:8c1e16c
           imagePullPolicy: Always
           ports:
             - containerPort: 3304
@@ -32,6 +32,11 @@ spec:
                 configMapKeyRef:
                   name: ctse-config
                   key: ORDER_SERVICE_URL
+            - name: AUTH_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: ctse-config
+                  key: AUTH_SERVICE_URL
             - name: CORS_ORIGIN
               valueFrom:
                 configMapKeyRef:
@@ -52,6 +57,11 @@ spec:
                 secretKeyRef:
                   name: ctse-secrets
                   key: JWT_SECRET
+            - name: INTERNAL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ctse-secrets
+                  key: INTERNAL_SERVICE_TOKEN
           resources:
             requests:
               cpu: "100m"
