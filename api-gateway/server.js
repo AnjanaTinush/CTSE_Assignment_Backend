@@ -8,7 +8,11 @@ const rateLimit = require("express-rate-limit");
 
 const app = express();
 const PORT = process.env.PORT || 3300;
-const defaultCorsOrigins = ["http://localhost:5173", "http://localhost:5174"];
+const defaultCorsOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "https://ctse-assignment-frontend.vercel.app",
+];
 const corsOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(",")
       .map((origin) => origin.trim())
