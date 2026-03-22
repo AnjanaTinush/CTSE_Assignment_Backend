@@ -8,9 +8,8 @@ metadata:
 spec:
   selector:
     app: api-gateway
-  # LoadBalancer provisions a public IP via the cloud provider (EKS/GKE/AKS).
-  # Change to NodePort if your cluster does not support LoadBalancer.
-  type: LoadBalancer
+  # Changed to ClusterIP since Ingress will handle external traffic with HTTPS/TLS
+  type: ClusterIP
   ports:
     - protocol: TCP
       port: 80
