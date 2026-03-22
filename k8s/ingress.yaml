@@ -10,17 +10,17 @@ metadata:
 spec:
   ingressClassName: nginx
   tls:
-  - hosts:
-    - __API_HOST__
-    secretName: api-gateway-tls
+    - hosts:
+        - __API_HOST__
+      secretName: api-gateway-tls
   rules:
-  - host: __API_HOST__
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: api-gateway
-            port:
-              number: 80
+    - host: __API_HOST__
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 80
