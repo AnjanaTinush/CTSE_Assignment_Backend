@@ -1,12 +1,15 @@
 # HTTPS Setup Guide for CTSE Backend
 
 ## Overview
+
 This guide sets up HTTPS on your AKS cluster using:
+
 - **NGINX Ingress Controller** - handles incoming traffic and TLS termination
 - **cert-manager** - automatically manages SSL/TLS certificates with Let's Encrypt
 - **Let's Encrypt** - provides free SSL certificates
 
 ## Prerequisites
+
 - AKS cluster running
 - `kubectl` configured
 - `helm` installed
@@ -26,6 +29,7 @@ helm install nginx-ingress ingress-nginx/ingress-nginx \
 ```
 
 Wait for the LoadBalancer to get a public IP:
+
 ```bash
 kubectl get svc -n ingress-nginx
 # Look for EXTERNAL-IP
@@ -46,6 +50,7 @@ helm install cert-manager jetstack/cert-manager \
 ```
 
 Verify installation:
+
 ```bash
 kubectl get pods -n cert-manager
 ```
@@ -53,6 +58,7 @@ kubectl get pods -n cert-manager
 ## Step 3: Update Your DNS Records
 
 1. Get the LoadBalancer public IP:
+
 ```bash
 kubectl get svc -n ingress-nginx nginx-ingress-ingress-nginx-controller
 ```
@@ -64,6 +70,7 @@ kubectl get svc -n ingress-nginx nginx-ingress-ingress-nginx-controller
 ## Step 4: Update the Ingress Configuration
 
 Edit `k8s/ingress.yaml` and replace:
+
 - `api.ctse-assignment.com` → your actual domain
 - Update your email in `k8s/cert-manager-setup.yaml`
 
@@ -83,12 +90,14 @@ kubectl apply -f k8s/api-gateway/service.yaml
 ## Step 6: Verify HTTPS Certificate
 
 Monitor certificate issuance:
+
 ```bash
 kubectl get certificate -n ctse-app
 kubectl describe certificate api-gateway-tls -n ctse-app
 ```
 
 Check certificate status:
+
 ```bash
 kubectl get secret api-gateway-tls -n ctse-app -o yaml
 ```
@@ -96,6 +105,7 @@ kubectl get secret api-gateway-tls -n ctse-app -o yaml
 ## Step 7: Update Frontend Configuration
 
 Update your frontend environment variables to use HTTPS:
+
 ```
 VITE_API_URL=https://api.ctse-assignment.com
 ```
@@ -103,6 +113,7 @@ VITE_API_URL=https://api.ctse-assignment.com
 ## Troubleshooting
 
 ### Certificate not issuing
+
 ```bash
 # Check cert-manager logs
 kubectl logs -n cert-manager -l app=cert-manager
@@ -112,12 +123,14 @@ kubectl logs -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx
 ```
 
 ### Check challenge status
+
 ```bash
 kubectl get challenges -n ctse-app
 kubectl describe challenge api-gateway-tls-1 -n ctse-app
 ```
 
 ### Force certificate renewal
+
 ```bash
 kubectl delete secret api-gateway-tls -n ctse-app
 kubectl annotate certificate api-gateway-tls -n ctse-app cert-manager.io/issue-temporary-certificate=true --overwrite
@@ -126,6 +139,7 @@ kubectl annotate certificate api-gateway-tls -n ctse-app cert-manager.io/issue-t
 ## SSL/TLS Test
 
 Once deployed, test your HTTPS endpoint:
+
 ```bash
 curl -I https://api.ctse-assignment.com/health
 # Should return 200 with proper certificate
@@ -140,6 +154,7 @@ curl -I https://api.ctse-assignment.com/health
 5. **Rate Limits**: Let's Encrypt has rate limits - use staging first!
 
 ## References
+
 - [NGINX Ingress Controller](https://kubernetes.github.io/ingress-nginx/)
 - [cert-manager Documentation](https://cert-manager.io/)
 - [Let's Encrypt](https://letsencrypt.org/)
