@@ -5,14 +5,8 @@ metadata:
   namespace: ctse-app
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-staging"
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 spec:
   ingressClassName: nginx
-  tls:
-  - hosts:
-    - 20.198.193.186.sslip.io  # Change this to your domain
-    secretName: api-gateway-tls
   rules:
   - host: 20.198.193.186.sslip.io  # Change this to your domain
     http:
