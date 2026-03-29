@@ -40,6 +40,39 @@ resource "azurerm_kubernetes_cluster" "aks" {
   }
 }
 
+data "azurerm_network_security_group" "aks_nodes" {
+  name                = "aks-agentpool-36241757-nsg"
+  resource_group_name = "MC_ctse-group_ctse-cluster_southeastasia"
+}
+
+resource "azurerm_network_security_rule" "allow_http" {
+  name                        = "allow-http"
+  priority                    = 300
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "80"
+  source_address_prefix       = "Internet"
+  destination_address_prefix  = "*"
+  resource_group_name         = data.azurerm_network_security_group.aks_nodes.resource_group_name
+  network_security_group_name = data.azurerm_network_security_group.aks_nodes.name
+}
+
+resource "azurerm_network_security_rule" "allow_https" {
+  name                        = "allow-https"
+  priority                    = 310
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "443"
+  source_address_prefix       = "Internet"
+  destination_address_prefix  = "*"
+  resource_group_name         = data.azurerm_network_security_group.aks_nodes.resource_group_name
+  network_security_group_name = data.azurerm_network_security_group.aks_nodes.name
+}
+
 resource "kubernetes_namespace_v1" "ctse" {
   metadata {
     name = local.namespace

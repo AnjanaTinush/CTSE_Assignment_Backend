@@ -1,0 +1,18 @@
+# Add nginx ingress controller Helm repository
+# Run: helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+# Run: helm install nginx-ingress ingress-nginx/ingress-nginx --namespace ingress-nginx --create-namespace \
+#   --set controller.service.annotations."service\.beta\.kubernetes\.io/port_80_health-probe_protocol"=Tcp \
+#   --set controller.service.annotations."service\.beta\.kubernetes\.io/port_443_health-probe_protocol"=Tcp
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-nginx
+---
+# This will be installed via Helm chart, but here's the reference configuration
+# After installing nginx ingress, update the service to use LoadBalancer:
+# kubectl patch svc -n ingress-nginx nginx-ingress-ingress-nginx-controller -p '{"spec": {"type": "LoadBalancer"}}'
+# If external access times out on Azure, force TCP probes to avoid HTTP probe path mismatches:
+# kubectl annotate svc -n ingress-nginx nginx-ingress-ingress-nginx-controller \
+#   service.beta.kubernetes.io/port_80_health-probe_protocol=Tcp \
+#   service.beta.kubernetes.io/port_443_health-probe_protocol=Tcp --overwrite

@@ -20,7 +20,7 @@ spec:
         runAsUser: 1000
       containers:
         - name: api-gateway
-          image: praveen1214/api-gateway:8c1e16c
+          image: praveen1214/api-gateway:v2
           imagePullPolicy: Always
           ports:
             - containerPort: 3300

@@ -11,5 +11,5 @@ data:
   PRODUCT_SERVICE_URL: "http://product-service:3302"
   ORDER_SERVICE_URL: "http://order-service:3303"
   DELIVERY_SERVICE_URL: "http://delivery-service:3304"
-  CORS_ORIGIN: "*"
+  CORS_ORIGIN: "http://localhost:5173,http://localhost:5174,https://ctse-assignment-frontend.vercel.app"
   NODE_ENV: "production"
