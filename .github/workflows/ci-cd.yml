@@ -11,6 +11,8 @@ on:
 
 env:
   NODE_VERSION: "20.x"
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
   # ────────────────────────────────────────────────────────────────────────────
