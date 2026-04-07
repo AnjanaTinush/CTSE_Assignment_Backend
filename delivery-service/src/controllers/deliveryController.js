@@ -44,6 +44,49 @@ const getDeliveriesQuerySchema = Joi.object({
 });
 
 const isTerminalStatus = (status) => ['COMPLETED', 'CANCELLED_BY_DELIVERY'].includes(status);
+const DELIVERY_ROLE_ALLOWED_STATUSES = new Set(['PICKED_UP', 'OUT_FOR_DELIVERY', 'COMPLETED', 'CANCELLED_BY_DELIVERY']);
+
+const validateDeliveryStatusUpdate = (req, delivery, status) => {
+    if (req.user.role !== 'DELIVERY') {
+        return;
+    }
+
+    if (!DELIVERY_ROLE_ALLOWED_STATUSES.has(status)) {
+        const error = new Error('Invalid status transition for delivery role');
+        error.status = 403;
+        throw error;
+    }
+
+    if (delivery.deliveryUserId !== req.user.id) {
+        const error = new Error('Not authorized to update this delivery');
+        error.status = 403;
+        throw error;
+    }
+};
+
+const applyDeliveryStatusTimestamps = (delivery, status) => {
+    const now = new Date();
+
+    if (status === 'PICKED_UP') {
+        delivery.pickedUpAt = now;
+    }
+
+    if (status === 'COMPLETED') {
+        delivery.completedAt = now;
+    }
+
+    if (status === 'CANCELLED_BY_DELIVERY') {
+        delivery.cancelledAt = now;
+    }
+};
+
+const getCancellationReason = (value) => {
+    if (value.status !== 'CANCELLED_BY_DELIVERY') {
+        return undefined;
+    }
+
+    return value.failureReason || value.notes;
+};
 
 const syncOrder = async (orderId, authHeader, body) => {
     await orderServiceClient.patch(
@@ -229,37 +272,23 @@ const updateDeliveryStatus = async (req, res) => {
             return res.status(400).json({ message: 'Completed or cancelled deliveries cannot be updated' });
         }
 
-        if (req.user.role === 'DELIVERY') {
-            if (!['PICKED_UP', 'OUT_FOR_DELIVERY', 'COMPLETED', 'CANCELLED_BY_DELIVERY'].includes(value.status)) {
-                return res.status(403).json({ message: 'Invalid status transition for delivery role' });
-            }
-
-            if (delivery.deliveryUserId !== req.user.id) {
-                return res.status(403).json({ message: 'Not authorized to update this delivery' });
-            }
-        }
+        validateDeliveryStatusUpdate(req, delivery, value.status);
 
         delivery.status = value.status;
-        if (value.notes) delivery.notes = value.notes;
-
-        if (value.status === 'PICKED_UP') {
-            delivery.pickedUpAt = new Date();
+        if (value.notes) {
+            delivery.notes = value.notes;
         }
 
-        if (value.status === 'COMPLETED') {
-            delivery.completedAt = new Date();
-        }
-
-        if (value.status === 'CANCELLED_BY_DELIVERY') {
-            delivery.cancelledAt = new Date();
-            if (value.failureReason) delivery.failureReason = value.failureReason;
+        applyDeliveryStatusTimestamps(delivery, value.status);
+        if (value.status === 'CANCELLED_BY_DELIVERY' && value.failureReason) {
+            delivery.failureReason = value.failureReason;
         }
 
         await delivery.save();
 
         await syncOrder(delivery.orderId, req.headers.authorization, {
             status:             value.status,
-            cancellationReason: value.status === 'CANCELLED_BY_DELIVERY' ? (value.failureReason || value.notes) : undefined,
+            cancellationReason: getCancellationReason(value),
             deliveryUserId:     delivery.deliveryUserId,
             deliveryUserName:   delivery.deliveryUserName,
             deliveryId:         delivery._id
