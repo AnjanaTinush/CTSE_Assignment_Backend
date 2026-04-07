@@ -172,53 +172,78 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ────────────────────────────────────────────────────────────────────────────
-  # Stage 5a – Deploy to AWS ECS  (main branch, only when DEPLOY_TARGET=ecs)
-  # Set the repository variable DEPLOY_TARGET=ecs and the AWS secrets to enable.
+  # Stage 5 – Terraform: Provision / Update AKS infrastructure
+  # Runs on main branch after Docker images are pushed.
+  # Requires Azure Service Principal secrets:
+  #   ARM_CLIENT_ID, ARM_CLIENT_SECRET, ARM_TENANT_ID, ARM_SUBSCRIPTION_ID
+  # And Terraform variable secrets:
+  #   TF_VAR_jwt_secret, TF_VAR_internal_service_token,
+  #   TF_VAR_auth_mongo_uri, TF_VAR_product_mongo_uri,
+  #   TF_VAR_order_mongo_uri, TF_VAR_delivery_mongo_uri
   # ────────────────────────────────────────────────────────────────────────────
-  deploy-ecs:
-    name: Deploy to ECS – ${{ matrix.service }}
+  terraform:
+    name: Terraform – Provision AKS & Deploy
     runs-on: ubuntu-latest
     needs: docker-build-push
-    if: github.ref == 'refs/heads/main' && vars.DEPLOY_TARGET == 'ecs'
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          [
-            auth-service,
-            product-service,
-            order-service,
-            delivery-service,
-            api-gateway,
-          ]
+    if: github.ref == 'refs/heads/main'
+    env:
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+    defaults:
+      run:
+        working-directory: infra
     steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Force new ECS rolling deployment
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.0"
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
         run: |
-          aws ecs update-service \
-            --cluster "${{ vars.AWS_ECS_CLUSTER }}" \
-            --service "${{ matrix.service }}" \
-            --force-new-deployment
+          terraform plan -input=false \
+            -var="subscription_id=${{ secrets.ARM_SUBSCRIPTION_ID }}" \
+            -var="resource_group_name=ctse-group" \
+            -var="aks_cluster_name=ctse-cluster" \
+            -var="location=southeastasia" \
+            -var="dns_prefix=ctse" \
+            -var="node_count=2" \
+            -var="vm_size=Standard_B2s" \
+            -var="dockerhub_username=${{ secrets.DOCKERHUB_USERNAME }}" \
+            -var="image_tag=sha-${{ github.sha }}" \
+            -var="cors_origin=*" \
+            -var="jwt_secret=${{ secrets.JWT_SECRET }}" \
+            -var="internal_service_token=${{ secrets.INTERNAL_SERVICE_TOKEN }}" \
+            -var="auth_mongo_uri=${{ secrets.AUTH_MONGO_URI }}" \
+            -var="product_mongo_uri=${{ secrets.PRODUCT_MONGO_URI }}" \
+            -var="order_mongo_uri=${{ secrets.ORDER_MONGO_URI }}" \
+            -var="delivery_mongo_uri=${{ secrets.DELIVERY_MONGO_URI }}" \
+            -out=tfplan
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
 
   # ────────────────────────────────────────────────────────────────────────────
-  # Stage 5b – Deploy to Kubernetes  (main branch, only when DEPLOY_TARGET=k8s)
-  # Set the repository variable DEPLOY_TARGET=k8s and the KUBECONFIG_DATA secret.
-  # KUBECONFIG_DATA = base-64 encoded kubeconfig file for your cluster.
-  # Required runtime secrets for upgraded backend:
-  # JWT_SECRET, INTERNAL_SERVICE_TOKEN,
-  # AUTH_MONGO_URI, PRODUCT_MONGO_URI, ORDER_MONGO_URI, DELIVERY_MONGO_URI
+  # Stage 6 – Deploy K8s manifests to AKS  (main branch)
+  # Applies ingress, cert-manager, and service manifests via kubectl.
+  # This runs AFTER Terraform provisions the cluster.
+  # Required secrets:
+  #   KUBECONFIG_DATA (base64-encoded kubeconfig)
+  #   JWT_SECRET, INTERNAL_SERVICE_TOKEN,
+  #   AUTH_MONGO_URI, PRODUCT_MONGO_URI, ORDER_MONGO_URI, DELIVERY_MONGO_URI
   # ────────────────────────────────────────────────────────────────────────────
   deploy-k8s:
-    name: Deploy to Kubernetes
+    name: Deploy to AKS Kubernetes
     runs-on: ubuntu-latest
-    needs: docker-build-push
-    if: github.ref == 'refs/heads/main' && vars.DEPLOY_TARGET == 'k8s'
+    needs: terraform
+    if: github.ref == 'refs/heads/main'
     env:
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       INTERNAL_SERVICE_TOKEN: ${{ secrets.INTERNAL_SERVICE_TOKEN }}
@@ -238,35 +263,17 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v4
 
-      - name: Configure kubectl from secret
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: '{"clientId":"${{ secrets.ARM_CLIENT_ID }}","clientSecret":"${{ secrets.ARM_CLIENT_SECRET }}","subscriptionId":"${{ secrets.ARM_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.ARM_TENANT_ID }}"}'
+
+      - name: Get AKS credentials
         run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBECONFIG_DATA }}" | base64 -d > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
-
-      - name: Validate required Kubernetes runtime secrets
-        run: |
-          missing=()
-          required=(
-            JWT_SECRET
-            INTERNAL_SERVICE_TOKEN
-            AUTH_MONGO_URI
-            PRODUCT_MONGO_URI
-            ORDER_MONGO_URI
-            DELIVERY_MONGO_URI
-            LETSENCRYPT_EMAIL
-          )
-
-          for key in "${required[@]}"; do
-            if [[ -z "${!key}" ]]; then
-              missing+=("$key")
-            fi
-          done
-
-          if (( ${#missing[@]} > 0 )); then
-            echo "::error::Missing required GitHub secrets for Kubernetes deploy: ${missing[*]}"
-            exit 1
-          fi
+          az aks get-credentials \
+            --resource-group ctse-group \
+            --name ctse-cluster \
+            --overwrite-existing
 
       - name: Update image tags in deployment manifests
         run: |
