@@ -214,6 +214,10 @@ jobs:
 
       - name: Configure kubectl from secret
         run: |
+          if [ -z "${{ secrets.KUBECONFIG_DATA }}" ]; then
+            echo "::error::KUBECONFIG_DATA secret is missing or empty! Please make sure you added the base64-encoded config to GitHub Repository Secrets exactly as named: KUBECONFIG_DATA"
+            exit 1
+          fi
           mkdir -p $HOME/.kube
           echo "${{ secrets.KUBECONFIG_DATA }}" | base64 -d > $HOME/.kube/config
           chmod 600 $HOME/.kube/config
