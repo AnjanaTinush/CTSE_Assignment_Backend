@@ -79,6 +79,20 @@ const updateStatusSchema = Joi.object({
     cancellationReason: Joi.string().trim().max(300).optional()
 });
 
+const getOrdersQuerySchema = Joi.object({
+    status: Joi.string().valid(
+        'PENDING',
+        'ASSIGNED',
+        'OUT_FOR_DELIVERY',
+        'COMPLETED',
+        'CANCELLED_BY_USER',
+        'CANCELLED_BY_ADMIN',
+        'CANCELLED_BY_DELIVERY'
+    ).optional(),
+    deliveryUserId: Joi.string().trim().optional(),
+    contactNumber: Joi.string().trim().pattern(/^\+?\d{7,15}$/).optional()
+});
+
 const assignDeliverySchema = Joi.object({
     deliveryUserId: Joi.string().required(),
     deliveryUserName: Joi.string().trim().min(2).max(100).optional(),
@@ -281,18 +295,23 @@ const createOrder = async (req, res) => {
 
 const getOrders = async (req, res) => {
     try {
+        const { value, error } = getOrdersQuerySchema.validate(req.query, { stripUnknown: true });
+        if (error) {
+            return res.status(400).json({ message: error.message });
+        }
+
         const query = {};
 
-        if (req.query.status) {
-            query.status = req.query.status;
+        if (value.status) {
+            query.status = value.status;
         }
 
-        if (req.query.deliveryUserId) {
-            query['deliveryAssignment.deliveryUserId'] = req.query.deliveryUserId;
+        if (value.deliveryUserId) {
+            query['deliveryAssignment.deliveryUserId'] = value.deliveryUserId;
         }
 
-        if (req.query.contactNumber) {
-            query.userContactNumber = req.query.contactNumber;
+        if (value.contactNumber) {
+            query.userContactNumber = value.contactNumber;
         }
 
         const orders = await Order.find(query).sort({ createdAt: -1 });

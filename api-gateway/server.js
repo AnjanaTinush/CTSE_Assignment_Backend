@@ -8,6 +8,9 @@ const rateLimit = require("express-rate-limit");
 
 const app = express();
 const PORT = process.env.PORT || 3300;
+const DEFAULT_SERVICE_PROTOCOL = process.env.DEFAULT_SERVICE_PROTOCOL || 'https';
+
+const buildServiceUrl = (host, port) => `${DEFAULT_SERVICE_PROTOCOL}://${host}:${port}`;
 
 const defaultCorsOrigins = [
   "http://localhost:5173",
@@ -64,7 +67,7 @@ app.get("/health", (_req, res) =>
 app.use(
   "/auth",
   createProxyMiddleware({
-    target: `${process.env.AUTH_SERVICE_URL || "http://auth-service:3301"}/auth`,
+    target: `${process.env.AUTH_SERVICE_URL || buildServiceUrl('auth-service', 3301)}/auth`,
     changeOrigin: true,
   })
 );
@@ -72,7 +75,7 @@ app.use(
 app.use(
   "/users",
   createProxyMiddleware({
-    target: `${process.env.AUTH_SERVICE_URL || "http://auth-service:3301"}/users`,
+    target: `${process.env.AUTH_SERVICE_URL || buildServiceUrl('auth-service', 3301)}/users`,
     changeOrigin: true,
   })
 );
@@ -80,7 +83,7 @@ app.use(
 app.use(
   "/products",
   createProxyMiddleware({
-    target: `${process.env.PRODUCT_SERVICE_URL || "http://product-service:3302"}/products`,
+    target: `${process.env.PRODUCT_SERVICE_URL || buildServiceUrl('product-service', 3302)}/products`,
     changeOrigin: true,
   })
 );
@@ -88,7 +91,7 @@ app.use(
 app.use(
   "/orders",
   createProxyMiddleware({
-    target: `${process.env.ORDER_SERVICE_URL || "http://order-service:3303"}/orders`,
+    target: `${process.env.ORDER_SERVICE_URL || buildServiceUrl('order-service', 3303)}/orders`,
     changeOrigin: true,
   })
 );
@@ -96,7 +99,7 @@ app.use(
 app.use(
   "/deliveries",
   createProxyMiddleware({
-    target: `${process.env.DELIVERY_SERVICE_URL || "http://delivery-service:3304"}/deliveries`,
+    target: `${process.env.DELIVERY_SERVICE_URL || buildServiceUrl('delivery-service', 3304)}/deliveries`,
     changeOrigin: true,
   })
 );

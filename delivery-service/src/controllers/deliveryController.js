@@ -37,7 +37,60 @@ const updateDeliverySchema = Joi.object({
     failureReason: Joi.string().trim().max(500).optional()
 });
 
+const getDeliveryByOrderIdParamSchema = Joi.object({
+    orderId: Joi.string().trim().pattern(/^[a-f\d]{24}$/i).required()
+});
+
+const getDeliveriesQuerySchema = Joi.object({
+    status:         Joi.string().valid('ASSIGNED', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'COMPLETED', 'CANCELLED_BY_DELIVERY').optional(),
+    deliveryUserId: Joi.string().trim().optional(),
+    priority:       Joi.string().valid('NORMAL', 'HIGH', 'URGENT').optional()
+});
+
 const isTerminalStatus = (status) => ['COMPLETED', 'CANCELLED_BY_DELIVERY'].includes(status);
+const DELIVERY_ROLE_ALLOWED_STATUSES = new Set(['PICKED_UP', 'OUT_FOR_DELIVERY', 'COMPLETED', 'CANCELLED_BY_DELIVERY']);
+
+const validateDeliveryStatusUpdate = (req, delivery, status) => {
+    if (req.user.role !== 'DELIVERY') {
+        return;
+    }
+
+    if (!DELIVERY_ROLE_ALLOWED_STATUSES.has(status)) {
+        const error = new Error('Invalid status transition for delivery role');
+        error.status = 403;
+        throw error;
+    }
+
+    if (delivery.deliveryUserId !== req.user.id) {
+        const error = new Error('Not authorized to update this delivery');
+        error.status = 403;
+        throw error;
+    }
+};
+
+const applyDeliveryStatusTimestamps = (delivery, status) => {
+    const now = new Date();
+
+    if (status === 'PICKED_UP') {
+        delivery.pickedUpAt = now;
+    }
+
+    if (status === 'COMPLETED') {
+        delivery.completedAt = now;
+    }
+
+    if (status === 'CANCELLED_BY_DELIVERY') {
+        delivery.cancelledAt = now;
+    }
+};
+
+const getCancellationReason = (value) => {
+    if (value.status !== 'CANCELLED_BY_DELIVERY') {
+        return undefined;
+    }
+
+    return value.failureReason || value.notes;
+};
 
 const syncOrder = async (orderId, authHeader, body) => {
     await orderServiceClient.patch(
@@ -120,11 +173,24 @@ const createDelivery = async (req, res) => {
 
 const getDeliveries = async (req, res) => {
     try {
+        const { error, value } = getDeliveriesQuerySchema.validate(req.query, { stripUnknown: true });
+        if (error) {
+            return res.status(400).json({ message: error.details[0].message });
+        }
+
         const query = {};
 
-        if (req.query.status)         query.status = req.query.status;
-        if (req.query.deliveryUserId) query.deliveryUserId = req.query.deliveryUserId;
-        if (req.query.priority)       query.priority = req.query.priority;
+        if (value.status) {
+            query.status = value.status;
+        }
+
+        if (value.deliveryUserId) {
+            query.deliveryUserId = value.deliveryUserId;
+        }
+
+        if (value.priority) {
+            query.priority = value.priority;
+        }
 
         const deliveries = await Delivery.find(query).sort({ assignedAt: -1 });
         return res.json(deliveries);
@@ -171,7 +237,12 @@ const getDeliveryById = async (req, res) => {
 
 const getDeliveryByOrderId = async (req, res) => {
     try {
-        const delivery = await Delivery.findOne({ orderId: req.params.orderId });
+        const { error, value } = getDeliveryByOrderIdParamSchema.validate(req.params);
+        if (error) {
+            return res.status(400).json({ message: error.details[0].message });
+        }
+
+        const delivery = await Delivery.findOne({ orderId: value.orderId });
         if (!delivery) {
             return res.status(404).json({ message: 'Delivery not found for this order' });
         }
@@ -182,7 +253,7 @@ const getDeliveryByOrderId = async (req, res) => {
 
         if (req.user.role === 'USER') {
             await orderServiceClient.get(
-                `${process.env.ORDER_SERVICE_URL}/orders/${req.params.orderId}`,
+                `${process.env.ORDER_SERVICE_URL}/orders/${encodeURIComponent(delivery.orderId)}`,
                 { headers: { Authorization: req.headers.authorization } }
             );
         }
@@ -210,37 +281,23 @@ const updateDeliveryStatus = async (req, res) => {
             return res.status(400).json({ message: 'Completed or cancelled deliveries cannot be updated' });
         }
 
-        if (req.user.role === 'DELIVERY') {
-            if (!['PICKED_UP', 'OUT_FOR_DELIVERY', 'COMPLETED', 'CANCELLED_BY_DELIVERY'].includes(value.status)) {
-                return res.status(403).json({ message: 'Invalid status transition for delivery role' });
-            }
-
-            if (delivery.deliveryUserId !== req.user.id) {
-                return res.status(403).json({ message: 'Not authorized to update this delivery' });
-            }
-        }
+        validateDeliveryStatusUpdate(req, delivery, value.status);
 
         delivery.status = value.status;
-        if (value.notes) delivery.notes = value.notes;
-
-        if (value.status === 'PICKED_UP') {
-            delivery.pickedUpAt = new Date();
+        if (value.notes) {
+            delivery.notes = value.notes;
         }
 
-        if (value.status === 'COMPLETED') {
-            delivery.completedAt = new Date();
-        }
-
-        if (value.status === 'CANCELLED_BY_DELIVERY') {
-            delivery.cancelledAt = new Date();
-            if (value.failureReason) delivery.failureReason = value.failureReason;
+        applyDeliveryStatusTimestamps(delivery, value.status);
+        if (value.status === 'CANCELLED_BY_DELIVERY' && value.failureReason) {
+            delivery.failureReason = value.failureReason;
         }
 
         await delivery.save();
 
         await syncOrder(delivery.orderId, req.headers.authorization, {
             status:             value.status,
-            cancellationReason: value.status === 'CANCELLED_BY_DELIVERY' ? (value.failureReason || value.notes) : undefined,
+            cancellationReason: getCancellationReason(value),
             deliveryUserId:     delivery.deliveryUserId,
             deliveryUserName:   delivery.deliveryUserName,
             deliveryId:         delivery._id

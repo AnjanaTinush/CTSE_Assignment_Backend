@@ -1,5 +1,16 @@
 const Category = require('../models/Category');
 const mongoose = require('mongoose');
+const Joi = require('joi');
+
+const createCategorySchema = Joi.object({
+    name: Joi.string().trim().min(2).max(150).required(),
+    description: Joi.string().trim().max(1000).optional().allow('')
+});
+
+const updateCategorySchema = Joi.object({
+    name: Joi.string().trim().min(2).max(150).optional(),
+    description: Joi.string().trim().max(1000).optional().allow('')
+}).min(1);
 
 const getCategories = async (req, res) => {
     console.log('[CategoryController] getCategories hit');
@@ -14,7 +25,12 @@ const getCategories = async (req, res) => {
 
 const createCategory = async (req, res) => {
     try {
-        const category = await Category.create(req.body);
+        const { error, value } = createCategorySchema.validate(req.body, { stripUnknown: true });
+        if (error) {
+            return res.status(400).json({ message: error.details[0].message });
+        }
+
+        const category = await Category.create(value);
         res.status(201).json(category);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -29,7 +45,12 @@ const updateCategory = async (req, res) => {
             return res.status(400).json({ message: 'Invalid category ID' });
         }
 
-        const category = await Category.findByIdAndUpdate(id, req.body, { new: true });
+        const { error, value } = updateCategorySchema.validate(req.body, { stripUnknown: true });
+        if (error) {
+            return res.status(400).json({ message: error.details[0].message });
+        }
+
+        const category = await Category.findByIdAndUpdate(id, value, { new: true });
 
         res.json(category);
     } catch (error) {
