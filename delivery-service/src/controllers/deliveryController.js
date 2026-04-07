@@ -37,6 +37,12 @@ const updateDeliverySchema = Joi.object({
     failureReason: Joi.string().trim().max(500).optional()
 });
 
+const getDeliveriesQuerySchema = Joi.object({
+    status:         Joi.string().valid('ASSIGNED', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'COMPLETED', 'CANCELLED_BY_DELIVERY').optional(),
+    deliveryUserId: Joi.string().trim().optional(),
+    priority:       Joi.string().valid('NORMAL', 'HIGH', 'URGENT').optional()
+});
+
 const isTerminalStatus = (status) => ['COMPLETED', 'CANCELLED_BY_DELIVERY'].includes(status);
 
 const syncOrder = async (orderId, authHeader, body) => {
@@ -120,11 +126,24 @@ const createDelivery = async (req, res) => {
 
 const getDeliveries = async (req, res) => {
     try {
+        const { error, value } = getDeliveriesQuerySchema.validate(req.query, { stripUnknown: true });
+        if (error) {
+            return res.status(400).json({ message: error.details[0].message });
+        }
+
         const query = {};
 
-        if (req.query.status)         query.status = req.query.status;
-        if (req.query.deliveryUserId) query.deliveryUserId = req.query.deliveryUserId;
-        if (req.query.priority)       query.priority = req.query.priority;
+        if (value.status) {
+            query.status = value.status;
+        }
+
+        if (value.deliveryUserId) {
+            query.deliveryUserId = value.deliveryUserId;
+        }
+
+        if (value.priority) {
+            query.priority = value.priority;
+        }
 
         const deliveries = await Delivery.find(query).sort({ assignedAt: -1 });
         return res.json(deliveries);
