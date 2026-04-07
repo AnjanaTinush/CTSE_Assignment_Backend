@@ -269,9 +269,11 @@ jobs:
           fi
 
       - name: Update image tags in deployment manifests
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
           for svc in auth-service product-service order-service delivery-service api-gateway; do
-            sed -i -E "s|image: .*/${svc}:.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/${svc}:sha-${{ github.sha }}|g" \
+            sed -i -E "s|image: .*/${svc}:.*|image: ${DOCKERHUB_USERNAME}/${svc}:sha-${GITHUB_SHA}|g" \
               k8s/${svc}/deployment.yaml
           done
 
