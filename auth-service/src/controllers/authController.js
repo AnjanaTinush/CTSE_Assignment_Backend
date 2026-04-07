@@ -38,6 +38,14 @@ const adminLoyaltyAdjustmentSchema = Joi.object({
     reason: Joi.string().trim().max(200).optional()
 });
 
+const getUsersQuerySchema = Joi.object({
+    role: Joi.string().valid('ADMIN', 'USER', 'DELIVERY').optional(),
+    contactNumber: Joi.string().trim().pattern(CONTACT_REGEX).optional(),
+    search: Joi.string().trim().max(100).optional()
+});
+
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const internalLoyaltyAdjustmentSchema = Joi.object({
     userId: Joi.string().required(),
     delta: Joi.number().integer().invalid(0).required(),
@@ -140,18 +148,23 @@ const getMe = async (req, res) => {
 
 const getUsers = async (req, res) => {
     try {
+        const { value, error } = getUsersQuerySchema.validate(req.query, { stripUnknown: true });
+        if (error) {
+            return res.status(400).json({ message: error.message });
+        }
+
         const query = {};
 
-        if (req.query.role) {
-            query.role = req.query.role;
+        if (value.role) {
+            query.role = value.role;
         }
 
-        if (req.query.contactNumber) {
-            query.contactNumber = normalizeContactNumber(req.query.contactNumber);
+        if (value.contactNumber) {
+            query.contactNumber = normalizeContactNumber(value.contactNumber);
         }
 
-        if (req.query.search) {
-            query.name = { $regex: req.query.search.trim(), $options: 'i' };
+        if (value.search) {
+            query.name = { $regex: escapeRegex(value.search), $options: 'i' };
         }
 
         const users = await User.find(query).select('-password').sort({ createdAt: -1 });
