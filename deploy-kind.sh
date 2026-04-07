@@ -29,19 +29,25 @@ require_command() {
     echo "Missing required command: $cmd" >&2
     exit 1
   fi
+  return 0
 }
 
 log() {
+  local message="$1"
   echo
-  echo "==> $1"
+  echo "==> $message"
+  return 0
 }
 
 warn() {
-  echo "WARN: $1" >&2
+  local message="$1"
+  echo "WARN: $message" >&2
+  return 0
 }
 
 fail() {
-  echo "ERROR: $1" >&2
+  local message="$1"
+  echo "ERROR: $message" >&2
   exit 1
 }
 

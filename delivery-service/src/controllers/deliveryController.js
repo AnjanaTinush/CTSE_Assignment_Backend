@@ -37,6 +37,10 @@ const updateDeliverySchema = Joi.object({
     failureReason: Joi.string().trim().max(500).optional()
 });
 
+const getDeliveryByOrderIdParamSchema = Joi.object({
+    orderId: Joi.string().trim().pattern(/^[a-f\d]{24}$/i).required()
+});
+
 const getDeliveriesQuerySchema = Joi.object({
     status:         Joi.string().valid('ASSIGNED', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'COMPLETED', 'CANCELLED_BY_DELIVERY').optional(),
     deliveryUserId: Joi.string().trim().optional(),
@@ -233,7 +237,12 @@ const getDeliveryById = async (req, res) => {
 
 const getDeliveryByOrderId = async (req, res) => {
     try {
-        const delivery = await Delivery.findOne({ orderId: req.params.orderId });
+        const { error, value } = getDeliveryByOrderIdParamSchema.validate(req.params);
+        if (error) {
+            return res.status(400).json({ message: error.details[0].message });
+        }
+
+        const delivery = await Delivery.findOne({ orderId: value.orderId });
         if (!delivery) {
             return res.status(404).json({ message: 'Delivery not found for this order' });
         }
@@ -244,7 +253,7 @@ const getDeliveryByOrderId = async (req, res) => {
 
         if (req.user.role === 'USER') {
             await orderServiceClient.get(
-                `${process.env.ORDER_SERVICE_URL}/orders/${req.params.orderId}`,
+                `${process.env.ORDER_SERVICE_URL}/orders/${encodeURIComponent(delivery.orderId)}`,
                 { headers: { Authorization: req.headers.authorization } }
             );
         }
