@@ -41,7 +41,10 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.use('/auth/login', authLimiter);
 app.use('/auth/register', authLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
 app.use('/', authRoutes);
+app.use('/api', authRoutes);
 
 app.get('/health', (req, res) => res.status(200).json({ status: 'OK', service: 'auth-service' }));
 

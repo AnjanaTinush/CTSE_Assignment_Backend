@@ -30,6 +30,7 @@ const swaggerDocument = YAML.load(path.join(__dirname, 'openapi.yaml'));
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.use('/deliveries', deliveryRoutes);
+app.use('/api/deliveries', deliveryRoutes);
 
 app.get('/health', (req, res) => res.status(200).json({ status: 'OK', service: 'delivery-service' }));
 

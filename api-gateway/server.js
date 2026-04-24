@@ -8,7 +8,7 @@ const rateLimit = require("express-rate-limit");
 
 const app = express();
 const PORT = process.env.PORT || 3300;
-const DEFAULT_SERVICE_PROTOCOL = process.env.DEFAULT_SERVICE_PROTOCOL || 'https';
+const DEFAULT_SERVICE_PROTOCOL = process.env.DEFAULT_SERVICE_PROTOCOL || "http";
 
 const buildServiceUrl = (host, port) => `${DEFAULT_SERVICE_PROTOCOL}://${host}:${port}`;
 
@@ -54,7 +54,10 @@ app.use((req, _res, next) => {
 });
 
 app.use((req, res, next) => {
-  if (req.path.startsWith("/users/internal")) {
+  if (
+    req.path.startsWith("/users/internal") ||
+    req.path.startsWith("/api/users/internal")
+  ) {
     return res.status(404).json({ message: "Not Found" });
   }
   return next();
@@ -64,45 +67,33 @@ app.get("/health", (_req, res) =>
   res.status(200).json({ status: "OK", service: "api-gateway" })
 );
 
-app.use(
-  "/auth",
-  createProxyMiddleware({
-    target: `${process.env.AUTH_SERVICE_URL || buildServiceUrl('auth-service', 3301)}/auth`,
-    changeOrigin: true,
-  })
-);
+const authBase = process.env.AUTH_SERVICE_URL || buildServiceUrl("auth-service", 3301);
+const productBase = process.env.PRODUCT_SERVICE_URL || buildServiceUrl("product-service", 3302);
+const orderBase = process.env.ORDER_SERVICE_URL || buildServiceUrl("order-service", 3303);
+const deliveryBase =
+  process.env.DELIVERY_SERVICE_URL || buildServiceUrl("delivery-service", 3304);
 
-app.use(
-  "/users",
+const createRouteProxy = (target) =>
   createProxyMiddleware({
-    target: `${process.env.AUTH_SERVICE_URL || buildServiceUrl('auth-service', 3301)}/users`,
+    target,
     changeOrigin: true,
-  })
-);
+  });
 
-app.use(
-  "/products",
-  createProxyMiddleware({
-    target: `${process.env.PRODUCT_SERVICE_URL || buildServiceUrl('product-service', 3302)}/products`,
-    changeOrigin: true,
-  })
-);
+// Support both legacy routes (/products) and frontend-prefixed routes (/api/products).
+app.use("/auth", createRouteProxy(`${authBase}/auth`));
+app.use("/api/auth", createRouteProxy(`${authBase}/auth`));
 
-app.use(
-  "/orders",
-  createProxyMiddleware({
-    target: `${process.env.ORDER_SERVICE_URL || buildServiceUrl('order-service', 3303)}/orders`,
-    changeOrigin: true,
-  })
-);
+app.use("/users", createRouteProxy(`${authBase}/users`));
+app.use("/api/users", createRouteProxy(`${authBase}/users`));
 
-app.use(
-  "/deliveries",
-  createProxyMiddleware({
-    target: `${process.env.DELIVERY_SERVICE_URL || buildServiceUrl('delivery-service', 3304)}/deliveries`,
-    changeOrigin: true,
-  })
-);
+app.use("/products", createRouteProxy(`${productBase}/products`));
+app.use("/api/products", createRouteProxy(`${productBase}/products`));
+
+app.use("/orders", createRouteProxy(`${orderBase}/orders`));
+app.use("/api/orders", createRouteProxy(`${orderBase}/orders`));
+
+app.use("/deliveries", createRouteProxy(`${deliveryBase}/deliveries`));
+app.use("/api/deliveries", createRouteProxy(`${deliveryBase}/deliveries`));
 
 app.use((err, _req, res, _next) => {
   console.error(err.stack);

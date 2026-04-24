@@ -31,6 +31,7 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // 🚀 ROUTE CONFIGURATION
 app.use('/products', productRoutes);
+app.use('/api/products', productRoutes);
 
 
 
